@@ -13,6 +13,7 @@ Planning (before run 1, by Claude): `.kiro/steering/product.md`, `tech.md`, `str
 | 6 | teletorch-builder / auto | bug: 40 columns overflowed (desktop and 360 px); canvas-measured advance, 4:3 scaleX on desktop | 64 | a75362d, 2 | |
 | 7 | teletorch-builder / auto | review fixes: page 500 always TEMPLATE in production; digest status field, number normalisation, prompt, template with real numbers, MM-DD dates, fastext 5-char labels, control polish. Interrupted once by my 600 s shell limit, once by Kiro "ClientThrottleError" rate limit, finished with `--resume` | 600 + 620 + 832 | bea8c3c, 10 | 25.21 after the throttle, 37.74 after run 8 |
 | 8 | teletorch-builder / claude-haiku-4.5 (0.40x) | edge case: unknown place shows PLACE NOT FOUND and leaves the cookie alone; font rounding at 360 px | 173 | a322697, 4 | 37.74 |
+| 9 | teletorch-builder / claude-haiku-4.5 (0.40x) | consistency fix: page 500 nearest quake now uses the same USGS M2.5+ 24h feed as page 101 (before, it used the M4.5+ feed, so the two pages could name different quakes); one new test | 82 | 70e5f7b, 2 | not read |
 
 Hooks actually fired during these runs (counted from `ContextualHookInvoked` events in ~/.kiro/sessions/*/messages.jsonl, status completed): run-tests-on-save 43 times, ascii-guard 29 times.
-Tests at the end: 166 (node:test), including fast-check property tests. Source size: 4,812 lines in src/, web/index.html and test/.
+Tests at the end: 167 (166 after run 8) (node:test), including fast-check property tests. Source size: 4,812 lines in src/, web/index.html and test/.

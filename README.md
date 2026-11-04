@@ -65,11 +65,11 @@ CF_API_TOKEN=... CF_ACCOUNT_ID=... python3 scripts/deploy.py   # deploys the Wor
 
 ## How Kiro was used
 
-All application code in `src/`, `web/`, `test/` and `scripts/` was written by Kiro CLI 3.0.0 in 8 non-interactive runs. The full run log with instructions, durations, commits and credits is in [KIRO_LOG.md](KIRO_LOG.md).
+All application code in `src/`, `web/`, `test/` and `scripts/` was written by Kiro CLI 3.0.0 in 9 non-interactive runs. The full run log with instructions, durations, commits and credits is in [KIRO_LOG.md](KIRO_LOG.md).
 
 - **Spec-driven development**: `.kiro/specs/teletorch/` has requirements in EARS style (R1-R7), a design and 10 tasks. Kiro implemented the tasks in order and ticked each checkbox after the tests passed.
 - **Steering**: three always-included files (`product.md`, `tech.md`, `structure.md`) fixed the product rules (exactly 40 x 24 ASCII, never let AI invent numbers), the runtime (one Worker, no bundler, Cache API, Workers AI) and the file layout. The steering rule about AI numbers became the `numbersAreGrounded()` guard and its tests.
-- **Custom agent**: Kiro created `.kiro/agents/teletorch-builder.json` (resources = steering + spec, tools read, write, shell); runs 2-8 used it with `kiro-cli chat --agent teletorch-builder`.
+- **Custom agent**: Kiro created `.kiro/agents/teletorch-builder.json` (resources = steering + spec, tools read, write, shell); runs 2-9 used it with `kiro-cli chat --agent teletorch-builder`.
 - **Agent hooks**: Kiro created two `PostFileSave` hooks in `.kiro/hooks/`: `run-tests-on-save` (runs the test suite after any src or test file is saved) and `ascii-guard` (fails if a source file contains non-ASCII characters). Kiro's session records show they fired 43 and 29 times during the build.
 - **Property-based testing**: fast-check properties (12 `fc.assert` blocks) check that any input renders to exactly 24 rows of 40 printable ASCII characters, that wrapping never loses words, and that the digest guard always rejects ungrounded numbers. 166 tests pass.
 - **Models**: runs 1-7 used Kiro's `auto` model; run 8 (a small edge-case fix) used `claude-haiku-4.5` at 0.40x credits to save the free-plan budget.

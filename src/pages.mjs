@@ -888,10 +888,11 @@ async function buildPage401(sub, env, ctx) {
  */
 async function collectFacts(env, ctx) {
   const place = getPlace(env);
-  const [fcResult, aqResult, quakeResult, quakeSigResult, eonetResult] = await Promise.all([
+  const [fcResult, aqResult, quakeResult, quakeM25Result, quakeSigResult, eonetResult] = await Promise.all([
     place ? forecast(place.lat, place.lon, ctx)   : Promise.resolve({ ok: false }),
     place ? airQuality(place.lat, place.lon, ctx) : Promise.resolve({ ok: false }),
     usgs('4.5', 'day', ctx),
+    usgs('2.5', 'day', ctx),
     usgs('significant', 'week', ctx),
     eonet(ctx),
   ]);
@@ -927,9 +928,9 @@ async function collectFacts(env, ctx) {
     facts.significantQuakesCount = quakeSigResult.features.length;
   }
 
-  // Nearest quake to place (from 24h feed, or week feed if needed)
-  if (place && quakeResult.ok && quakeResult.features.length > 0) {
-    const nearestResult = quakeResult.features
+  // Nearest quake to place (from M2.5+ 24h feed, same as page 101)
+  if (place && quakeM25Result.ok && quakeM25Result.features.length > 0) {
+    const nearestResult = quakeM25Result.features
       .map(f => {
         const coords = f.geometry && f.geometry.coordinates;
         if (!coords) return null;

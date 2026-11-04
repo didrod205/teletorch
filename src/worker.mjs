@@ -165,7 +165,7 @@ function withCookie(headers, setCookie) {
  * @returns {object}
  */
 function pageToJson(page, rendered) {
-  return {
+  const obj = {
     num:       page.num,
     sub:       page.sub,
     subs:      page.subs,
@@ -176,6 +176,9 @@ function pageToJson(page, rendered) {
     source:    page.source || '',
     fetchedAt: page.fetchedAt || '',
   };
+  // Include digest metadata for page 500
+  if (page.digest) obj.digest = page.digest;
+  return obj;
 }
 
 // ---------------------------------------------------------------------------

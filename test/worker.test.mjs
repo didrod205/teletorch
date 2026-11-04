@@ -295,5 +295,10 @@ describe('GET /p/500.json', () => {
     assert.equal(body.num, 500);
     assert.ok(body.title.includes('TEMPLATE') || body.title.includes('DIGEST'));
     assert.equal(body.rows.length, 24);
+    // digest metadata field must be present
+    assert.ok(body.digest, 'digest field must exist');
+    assert.ok(body.digest.mode === 'AI' || body.digest.mode === 'TEMPLATE', 'digest.mode must be AI or TEMPLATE');
+    assert.ok(typeof body.digest.reason === 'string', 'digest.reason must be a string');
+    assert.ok(typeof body.digest.checked === 'number', 'digest.checked must be a number');
   });
 });

@@ -547,8 +547,35 @@ describe('buildPage(101)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildPage -- unknown page returns 404-style page
+// buildPage -- page 500 (AI digest -- uses template in test env)
 // ---------------------------------------------------------------------------
+describe('buildPage(500)', () => {
+  it('renders 24x40 ASCII', async () => {
+    const page = await buildPage(500, 1, LONDON_ENV, null);
+    assertValidRender(page, 'page500');
+  });
+
+  it('title contains DIGEST', async () => {
+    const page = await buildPage(500, 1, LONDON_ENV, null);
+    assert.ok(page.title.includes('DIGEST'));
+  });
+
+  it('has a digest field with mode, reason, checked', async () => {
+    const page = await buildPage(500, 1, LONDON_ENV, null);
+    assert.ok(page.digest, 'page should have digest field');
+    assert.ok(page.digest.mode === 'AI' || page.digest.mode === 'TEMPLATE');
+    assert.ok(typeof page.digest.reason === 'string');
+    assert.ok(typeof page.digest.checked === 'number');
+  });
+
+  it('srcLine says TEMPLATE when no AI binding', async () => {
+    const page = await buildPage(500, 1, LONDON_ENV, null);
+    // In test env, AI is unavailable so mode is TEMPLATE
+    assert.ok(page.srcLine.includes('TEMPLATE'), `srcLine should mention TEMPLATE, got: ${page.srcLine}`);
+  });
+});
+
+
 describe('buildPage(unknown)', () => {
   it('returns page 888 as not-found', async () => {
     const page = await buildPage(888, 1, null, null);

@@ -249,24 +249,24 @@ export const FASTEXT_COLORS = ['red', 'green', 'yellow', 'cyan'];
 
 /**
  * Build the 40-char fastext row (row 24).
- * Each slot is 10 chars: " NNN LABEL" where LABEL is at most 6 chars.
- * This guarantees "NNN LABEL" (3+1+6=10, with leading space) never wraps.
+ * Each slot is 10 chars: "NNN LLLLL " (3 + 1 + 5 + 1 = 10).
+ * Row 24 must NOT begin with a space, so there is no leading space in slot 0.
+ * Labels are at most 5 characters.
  * @param {Array<{color: string, num: number, label: string}>} links
  * @returns {string} exactly 40 chars
  */
 export function fastext(links) {
-  const slots = ['', '', '', ''];
+  const slots = ['          ', '          ', '          ', '          '];
   const order = ['red', 'green', 'yellow', 'cyan'];
   for (const link of (links || [])) {
     const idx = order.indexOf(link.color);
     if (idx === -1) continue;
     const num = String(link.num).padStart(3, '0');
-    // Limit label to 6 characters so " NNN LABEL" fits in 10 chars (1+3+1+6=11 -> clip to 10)
-    const label = toAscii(String(link.label || '')).slice(0, 6);
-    slots[idx] = (' ' + num + ' ' + label).padEnd(10, ' ').slice(0, 10);
+    // Limit label to 5 characters so "NNN LLLLL " fits in 10 chars exactly
+    const label = toAscii(String(link.label || '')).slice(0, 5);
+    slots[idx] = (num + ' ' + label).padEnd(10, ' ').slice(0, 10);
   }
-  // Fill unused slots with spaces
-  return slots.map(s => s.padEnd(10, ' ')).join('');
+  return slots.join('');
 }
 
 // ---------------------------------------------------------------------------

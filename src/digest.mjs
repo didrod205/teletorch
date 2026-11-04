@@ -2,10 +2,11 @@
  * digest.mjs -- AI plain-words digest for page 500
  *
  * Rules:
- * - Prompt asks for at most 8 short plain-English sentences.
- * - Every number in the AI output must already appear in the facts object.
+ * - Prompt asks for at most 6 short plain-English sentences.
+ * - Every number in the AI output must already appear in the facts object,
+ *   including rounded forms that pages already display.
  * - If the AI is unavailable, slow (>6 s), or produces ungrounded numbers,
- *   fall back to a fixed template digest marked "TEMPLATE".
+ *   fall back to a template digest built from the facts (always grounded).
  * - Workers AI binding name: AI
  * - Model: @cf/meta/llama-3.3-70b-instruct-fp8-fast
  */
@@ -17,24 +18,30 @@ import { toAscii } from './teletext.mjs';
 // ---------------------------------------------------------------------------
 
 /**
- * Extract all numbers from a string.
- * Finds integers and decimals. Time strings like "12:04" yield [12, 4].
- * Strips leading zeros before comparison (e.g. "04" -> 4).
+ * Extract all numbers from a string, normalising:
+ *   - thousands separators: "1,539" -> 1539
+ *   - units glued to numbers: "17C", "5.9km/h", "M4.3" -> 17, 5.9, 4.3
+ *   - time strings "12:04" -> [12, 4]
  *
  * @param {string} text
  * @returns {number[]}
  */
 export function extractNumbers(text) {
   if (typeof text !== 'string') return [];
-  // Match decimals, integers, and time components (HH:MM split on colon)
-  // We tokenize: split on non-numeric-dot, then extract numeric tokens
   const results = [];
-  // Replace colons between digits with a space so "12:04" -> "12 04"
-  const normalized = text.replace(/(\d):(\d)/g, '$1 $2');
+
+  // Normalise thousands separators: "1,539" -> "1539" (repeat for multi-groups)
+  let s = text;
+  s = s.replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
+  s = s.replace(/(\d),(\d{3})(?!\d)/g, '$1$2');
+
+  // Replace colons between digits so "12:04" becomes "12 04"
+  s = s.replace(/(\d):(\d)/g, '$1 $2');
+
   // Match integer or decimal numbers (possibly with leading minus)
   const pattern = /-?\d+(?:\.\d+)?/g;
   let m;
-  while ((m = pattern.exec(normalized)) !== null) {
+  while ((m = pattern.exec(s)) !== null) {
     const n = parseFloat(m[0]);
     if (!isNaN(n)) results.push(n);
   }
@@ -47,7 +54,8 @@ export function extractNumbers(text) {
 
 /**
  * Flatten a plain-object facts tree into a Set of numbers.
- * Recurses into arrays and objects.
+ * Also adds Math.round() forms so pages displaying rounded temperatures
+ * ("22C" from 22.3) are still grounded.
  *
  * @param {*} val
  * @param {Set<number>} [out]
@@ -56,10 +64,16 @@ export function extractNumbers(text) {
 function flattenNumbers(val, out = new Set()) {
   if (typeof val === 'number' && isFinite(val)) {
     out.add(val);
+    const r = Math.round(val);
+    if (r !== val) out.add(r);
     return out;
   }
   if (typeof val === 'string') {
-    for (const n of extractNumbers(val)) out.add(n);
+    for (const n of extractNumbers(val)) {
+      out.add(n);
+      const r = Math.round(n);
+      if (r !== n) out.add(r);
+    }
     return out;
   }
   if (Array.isArray(val)) {
@@ -75,14 +89,8 @@ function flattenNumbers(val, out = new Set()) {
 
 /**
  * Check that every number in `text` also appears in `facts`.
- *
- * A number is grounded if:
- *   - It equals (after removing leading zeros) a number already in the
- *     flattened facts set, OR
- *   - It is in the built-in allow list {24, 7, 1000} AND those values
- *     appear in the facts.
- *
- * Returns true if all numbers are grounded, false if any are not.
+ * Returns true (boolean) if all numbers are grounded, false otherwise.
+ * Backward-compatible signature: use as a boolean.
  *
  * @param {string} text
  * @param {object} facts
@@ -97,57 +105,94 @@ export function numbersAreGrounded(text, facts) {
   return true;
 }
 
+/**
+ * Like numbersAreGrounded but returns detail for the page JSON.
+ * @param {string} text
+ * @param {object} facts
+ * @returns {{ ok: boolean, checked: number, ungrounded: number[] }}
+ */
+function checkGrounding(text, facts) {
+  const groundSet = flattenNumbers(facts);
+  const nums = extractNumbers(text);
+  const ungrounded = nums.filter(n => !groundSet.has(n));
+  return { ok: ungrounded.length === 0, checked: nums.length, ungrounded };
+}
+
 // ---------------------------------------------------------------------------
-// Template digest (always grounded -- uses no numbers)
+// Template digest (built from facts -- always grounded by construction)
 // ---------------------------------------------------------------------------
 
 /**
- * Build a template digest from the facts object.
- * Deliberately avoids any specific numbers so it is always grounded.
+ * Build a template digest from the facts object using real numbers from facts.
+ * Every number emitted comes directly from facts, so it is grounded by construction.
+ * Sentences with hardcoded numbers are avoided; counts and magnitudes come from facts.
  *
  * @param {object} facts
- * @returns {string}  plain ASCII text, at most 8 sentences
+ * @returns {string}  plain ASCII text, at most 6 sentences
  */
 export function templateDigest(facts) {
-  const lines = [];
+  const sentences = [];
+  const place = toAscii(facts.placeName || 'your area');
 
-  // Earthquakes
+  // Earthquakes today -- use only numbers from facts (quakeCount, mag from quakes array)
+  const quakeCount = facts.quakesTodayCount;
   const quakes = facts.quakesToday || [];
-  if (quakes.length > 0) {
-    lines.push(`Recent earthquakes have been recorded globally.`);
-  } else {
-    lines.push(`No major earthquakes were recorded recently.`);
+  if (typeof quakeCount === 'number' && quakeCount > 0) {
+    const strongest = quakes.reduce((best, q) =>
+      (q.mag != null && (best == null || q.mag > best.mag)) ? q : best, null);
+    // Use quakeCount from facts; avoid hardcoding "M4.5" or "24 hours" which are not in facts
+    sentences.push(`${quakeCount} significant earthquakes were recorded in the past day.`);
+    if (strongest && strongest.mag != null) {
+      const loc = toAscii(strongest.place || 'unknown location');
+      sentences.push(
+        `The strongest was M${Number(strongest.mag).toFixed(1)} near ${loc}.`
+      );
+    }
+  } else if (typeof quakeCount === 'number' && quakeCount === 0) {
+    sentences.push('No significant earthquakes were recorded in the past day.');
   }
 
-  // Significant quakes this week
-  const sigQuakes = facts.significantQuakes || [];
-  if (sigQuakes.length > 0) {
-    lines.push(`Significant seismic activity has been recorded this week.`);
+  // Nearest quake (place-specific) -- dist and mag come from facts
+  const nearest = facts.nearestQuake;
+  if (nearest && nearest.dist != null && nearest.mag != null) {
+    sentences.push(
+      `The nearest recent quake was M${Number(nearest.mag).toFixed(1)}, ${nearest.dist} km away.`
+    );
   }
 
-  // EONET events
-  const events = facts.openEvents || [];
-  if (events.length > 0) {
-    lines.push(`Natural events are being tracked globally.`);
+  // Weather (always include place name here so "mentions the place" test passes)
+  const weather = facts.weather;
+  if (weather && weather.todayMax != null && weather.todayMin != null) {
+    const hi  = Math.round(weather.todayMax);
+    const lo  = Math.round(weather.todayMin);
+    const desc = toAscii(weather.todayDesc || '');
+    sentences.push(`Today in ${place}: ${desc}, high ${hi}C, low ${lo}C.`);
+  } else if (weather && weather.todayDesc) {
+    const desc = toAscii(weather.todayDesc);
+    sentences.push(`Today in ${place}: ${desc}.`);
+  } else if (facts.placeName) {
+    sentences.push(`Conditions in ${place} are not currently available.`);
   }
 
-  // Weather
-  const weather = facts.weather || {};
-  if (weather.todayDesc) {
-    const place = toAscii(facts.placeName || 'your area');
-    lines.push(`Today in ${place}: ${toAscii(weather.todayDesc)}.`);
+  // Air quality -- value comes from facts
+  const aqi = facts.aqi;
+  if (aqi && aqi.value != null) {
+    const cat = toAscii(aqi.category || '');
+    sentences.push(`Air quality index is ${aqi.value}: ${cat}.`);
   }
 
-  // Air quality
-  const aqi = facts.aqi || {};
-  if (aqi.category) {
-    lines.push(`Air quality is currently ${toAscii(aqi.category)}.`);
+  // EONET events -- evCount comes from facts
+  const evCount = facts.openEventsCount;
+  if (typeof evCount === 'number' && evCount > 0) {
+    sentences.push(`${evCount} natural events are being tracked globally.`);
   }
 
-  // Footer note
-  lines.push(`Check individual pages for full details.`);
+  // Fallback: always produce at least one sentence
+  if (sentences.length === 0) {
+    sentences.push('No significant events were recorded recently. Check individual pages for details.');
+  }
 
-  return lines.slice(0, 8).map(l => toAscii(l)).join(' ');
+  return sentences.slice(0, 6).map(l => toAscii(l)).join(' ');
 }
 
 // ---------------------------------------------------------------------------
@@ -156,19 +201,32 @@ export function templateDigest(facts) {
 
 const SYSTEM_PROMPT =
   'You are a calm, factual teletext news reader. ' +
-  'Write at most 8 short plain-English sentences summarising the facts provided. ' +
-  'Use only numbers that appear in the data. ' +
+  'Write at most 6 short plain-English sentences for a worried non-expert. ' +
+  'Copy numbers exactly as written in the data. ' +
   'Do not invent places, times, or statistics. ' +
-  'Output only the summary sentences, no headings, no bullets, no markdown.';
+  'Do not give advice beyond "check local authorities". ' +
+  'Output only the sentences, no headings, no bullets, no markdown.';
 
 /**
- * Build the user prompt from the facts object.
+ * Build the user prompt from the facts object as short "key: value" lines.
  * @param {object} facts
  * @returns {string}
  */
 function buildPrompt(facts) {
-  return 'Summarise these facts in at most 8 plain-English sentences:\n' +
-    JSON.stringify(facts, null, 0);
+  const lines = ['Summarise the following facts in at most 6 plain-English sentences:'];
+  for (const [k, v] of Object.entries(facts)) {
+    if (typeof v === 'number' || typeof v === 'string') {
+      lines.push(`${k}: ${v}`);
+    } else if (Array.isArray(v)) {
+      if (v.length === 0) continue;
+      lines.push(`${k}: ${JSON.stringify(v.slice(0, 5))}`);
+    } else if (v !== null && typeof v === 'object') {
+      for (const [sk, sv] of Object.entries(v)) {
+        if (sv != null) lines.push(`${k}.${sk}: ${sv}`);
+      }
+    }
+  }
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -183,17 +241,22 @@ const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
  * Falls back to the template if AI is unavailable, times out, or produces
  * ungrounded numbers.
  *
- * @param {object} facts  - plain object from page 101 builder
+ * @param {object} facts  - plain object from page 101 / collectFacts
  * @param {object} env    - Cloudflare env (needs env.AI)
- * @returns {Promise<{ text: string, mode: 'AI'|'TEMPLATE' }>}
+ * @returns {Promise<{ text: string, mode: 'AI'|'TEMPLATE', reason: string, checked: number }>}
  */
 export async function aiDigest(facts, env) {
   if (!env || !env.AI) {
-    return { text: toAscii(templateDigest(facts)), mode: 'TEMPLATE' };
+    const text = toAscii(templateDigest(facts));
+    const { checked } = checkGrounding(text, facts);
+    return { text, mode: 'TEMPLATE', reason: 'no_ai_binding', checked };
   }
 
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('AI timeout')), AI_TIMEOUT_MS));
+
+  let aiError = null;
+  let raw = '';
 
   try {
     const aiPromise = env.AI.run(AI_MODEL, {
@@ -201,25 +264,59 @@ export async function aiDigest(facts, env) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user',   content: buildPrompt(facts) },
       ],
+      max_tokens: 220,
+      temperature: 0.2,
     });
 
     const result = await Promise.race([aiPromise, timeoutPromise]);
 
-    // Extract text from response
-    const raw = (result && result.response) ? String(result.response) : '';
-    const text = toAscii(raw.trim());
-
-    if (!text) {
-      return { text: toAscii(templateDigest(facts)), mode: 'TEMPLATE' };
+    // Handle various response shapes
+    if (result && typeof result.response === 'string') {
+      raw = result.response;
+    } else if (result && typeof result === 'string') {
+      raw = result;
+    } else if (result && result.choices && result.choices[0]) {
+      raw = result.choices[0].message?.content || result.choices[0].text || '';
+    } else {
+      raw = '';
     }
-
-    // Grounding check
-    if (!numbersAreGrounded(text, facts)) {
-      return { text: toAscii(templateDigest(facts)), mode: 'TEMPLATE' };
-    }
-
-    return { text, mode: 'AI' };
-  } catch (_err) {
-    return { text: toAscii(templateDigest(facts)), mode: 'TEMPLATE' };
+  } catch (err) {
+    aiError = err;
   }
+
+  if (aiError) {
+    const msg = aiError.message || String(aiError);
+    const isTimeout = msg.includes('timeout');
+    const text = toAscii(templateDigest(facts));
+    const { checked } = checkGrounding(text, facts);
+    return {
+      text,
+      mode: 'TEMPLATE',
+      reason: isTimeout ? 'timeout' : `ai_error: ${msg.slice(0, 40)}`,
+      checked,
+    };
+  }
+
+  const text = toAscii(raw.trim());
+
+  if (!text) {
+    const fallback = toAscii(templateDigest(facts));
+    const { checked } = checkGrounding(fallback, facts);
+    return { text: fallback, mode: 'TEMPLATE', reason: 'empty_response', checked };
+  }
+
+  // Grounding check
+  const { ok, checked, ungrounded } = checkGrounding(text, facts);
+  if (!ok) {
+    const fallback = toAscii(templateDigest(facts));
+    const { checked: fc2 } = checkGrounding(fallback, facts);
+    return {
+      text: fallback,
+      mode: 'TEMPLATE',
+      reason: `ungrounded: ${ungrounded.join(', ')}`,
+      checked: fc2,
+    };
+  }
+
+  return { text, mode: 'AI', reason: 'ok', checked };
 }

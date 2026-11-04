@@ -126,20 +126,20 @@ export function haversine(lat1, lon1, lat2, lon2) {
 
 // ---------------------------------------------------------------------------
 // Shared fastext link sets
-// Labels: max 6 chars so " NNN LABEL" (10 chars) is never cut.
+// Labels: max 5 chars so "NNN LLLLL " (10 chars per slot, no leading space).
 // ---------------------------------------------------------------------------
 const LINKS_INDEX = [
   { color: 'red',    num: 100, label: 'INDEX' },
   { color: 'green',  num: 200, label: 'QUAKE' },
-  { color: 'yellow', num: 300, label: 'EVENTS' },
+  { color: 'yellow', num: 300, label: 'EVENT' },
   { color: 'cyan',   num: 400, label: 'FCST' },
 ];
 
 const LINKS_QUAKE = [
   { color: 'red',    num: 100, label: 'INDEX' },
-  { color: 'green',  num: 200, label: 'M4.5+' },
-  { color: 'yellow', num: 201, label: 'SIG 7D' },
-  { color: 'cyan',   num: 202, label: 'NEARBY' },
+  { color: 'green',  num: 200, label: 'M4.5' },
+  { color: 'yellow', num: 201, label: 'SIG7D' },
+  { color: 'cyan',   num: 202, label: 'NEAR' },
 ];
 
 const LINKS_WEATHER = [
@@ -153,7 +153,7 @@ const LINKS_EVENTS = [
   { color: 'red',    num: 100, label: 'INDEX' },
   { color: 'green',  num: 300, label: 'ALL' },
   { color: 'yellow', num: 301, label: 'FIRES' },
-  { color: 'cyan',   num: 302, label: 'STORMS' },
+  { color: 'cyan',   num: 302, label: 'STORM' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -167,6 +167,17 @@ function fmtTime(ms) {
   const hh = String(d.getUTCHours()).padStart(2, '0');
   const mm = String(d.getUTCMinutes()).padStart(2, '0');
   return `${hh}:${mm} UTC`;
+}
+
+/** Format a Unix ms timestamp as "MM-DD HH:MM" (for 7-day pages) */
+function fmtDateTime(ms) {
+  if (!ms) return '?';
+  const d = new Date(ms);
+  const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${mo}-${dd} ${hh}:${mi}`;
 }
 
 /** Format a Unix ms timestamp as short date "DD Mon" */
@@ -208,7 +219,7 @@ function unavailableLines(sourceName) {
   ];
 }
 
-/** Build lines for a list of earthquake features */
+/** Build lines for a list of earthquake features (time only, for 24h page) */
 function quakeLines(features) {
   const lines = [];
   for (const f of features) {
@@ -216,11 +227,24 @@ function quakeLines(features) {
     const mag = fmtMag(p.mag);
     const time = fmtTime(p.time);
     const place = toAscii(String(p.place || 'Unknown location'));
-    // Felt reports: "130 felt" or empty
     const feltStr = p.felt ? ` ${p.felt} felt` : '';
-    // Row 1: "M4.5  12:04 UTC  130 felt"
     const row1 = columns([mag, time + feltStr], [5, 35]);
-    // Row 2: place (indented, truncated)
+    lines.push({ text: row1, color: 'cyan' });
+    lines.push({ text: ' ' + toAscii(place).slice(0, 37), color: 'white' });
+  }
+  return lines;
+}
+
+/** Build lines for a list of earthquake features showing MM-DD HH:MM (for 7-day pages) */
+function quakeLinesWithDate(features) {
+  const lines = [];
+  for (const f of features) {
+    const p = f.properties || {};
+    const mag = fmtMag(p.mag);
+    const dt = fmtDateTime(p.time);
+    const place = toAscii(String(p.place || 'Unknown location'));
+    // Row 1: "M4.5  MM-DD HH:MM"
+    const row1 = columns([mag, dt], [5, 35]);
     lines.push({ text: row1, color: 'cyan' });
     lines.push({ text: ' ' + toAscii(place).slice(0, 37), color: 'white' });
   }
@@ -514,7 +538,7 @@ async function buildPage201(sub, env, ctx) {
     { text: '', color: 'white' },
   ];
   const bodyLines = features.length > 0
-    ? quakeLines(features)
+    ? quakeLinesWithDate(features)
     : [{ text: 'No significant earthquakes this week', color: 'white' }];
 
   const subpages = paginate([...hdr, ...bodyLines], 20);
@@ -576,7 +600,7 @@ async function buildPage202(sub, env, ctx) {
     ? nearby.flatMap(({ f, dist }) => {
         const p = f.properties || {};
         return [
-          { text: columns([fmtMag(p.mag), fmtTime(p.time), `${Math.round(dist)}km`], [5, 12, 23]), color: 'cyan' },
+          { text: columns([fmtMag(p.mag), fmtDateTime(p.time), `${Math.round(dist)}km`], [5, 14, 21]), color: 'cyan' },
           { text: ' ' + toAscii(p.place || '').slice(0, 37), color: 'white' },
         ];
       })
@@ -604,30 +628,30 @@ const LINKS_EONET_NEXT = {
   301: [
     { color: 'red',    num: 100, label: 'INDEX' },
     { color: 'green',  num: 300, label: 'ALL' },
-    { color: 'yellow', num: 302, label: 'STORMS' },
-    { color: 'cyan',   num: 303, label: 'VOLCAN' },
+    { color: 'yellow', num: 302, label: 'STORM' },
+    { color: 'cyan',   num: 303, label: 'VOLC' },
   ],
   302: [
     { color: 'red',    num: 100, label: 'INDEX' },
     { color: 'green',  num: 301, label: 'FIRES' },
-    { color: 'yellow', num: 303, label: 'VOLCAN' },
-    { color: 'cyan',   num: 304, label: 'FLOODS' },
+    { color: 'yellow', num: 303, label: 'VOLC' },
+    { color: 'cyan',   num: 304, label: 'FLOOD' },
   ],
   303: [
     { color: 'red',    num: 100, label: 'INDEX' },
-    { color: 'green',  num: 302, label: 'STORMS' },
-    { color: 'yellow', num: 304, label: 'FLOODS' },
+    { color: 'green',  num: 302, label: 'STORM' },
+    { color: 'yellow', num: 304, label: 'FLOOD' },
     { color: 'cyan',   num: 305, label: 'OTHER' },
   ],
   304: [
     { color: 'red',    num: 100, label: 'INDEX' },
-    { color: 'green',  num: 303, label: 'VOLCAN' },
+    { color: 'green',  num: 303, label: 'VOLC' },
     { color: 'yellow', num: 305, label: 'OTHER' },
     { color: 'cyan',   num: 300, label: 'ALL' },
   ],
   305: [
     { color: 'red',    num: 100, label: 'INDEX' },
-    { color: 'green',  num: 304, label: 'FLOODS' },
+    { color: 'green',  num: 304, label: 'FLOOD' },
     { color: 'yellow', num: 300, label: 'ALL' },
     { color: 'cyan',   num: 400, label: 'FCST' },
   ],
@@ -903,6 +927,22 @@ async function collectFacts(env, ctx) {
     facts.significantQuakesCount = quakeSigResult.features.length;
   }
 
+  // Nearest quake to place (from 24h feed, or week feed if needed)
+  if (place && quakeResult.ok && quakeResult.features.length > 0) {
+    const nearestResult = quakeResult.features
+      .map(f => {
+        const coords = f.geometry && f.geometry.coordinates;
+        if (!coords) return null;
+        const dist = Math.round(haversine(place.lat, place.lon, coords[1], coords[0]));
+        return { mag: f.properties.mag, dist };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.dist - b.dist)[0];
+    if (nearestResult) {
+      facts.nearestQuake = nearestResult;
+    }
+  }
+
   // EONET open events
   facts.openEvents = [];
   if (eonetResult.ok) {
@@ -913,12 +953,16 @@ async function collectFacts(env, ctx) {
     facts.openEventsCount = eonetResult.events.length;
   }
 
-  // Weather (place-dependent)
+  // Weather (place-dependent) -- store rounded temps too so template is grounded
   if (fcResult.ok && fcResult.daily && fcResult.daily.time) {
     const d = fcResult.daily;
+    const rawMax = d.temperature_2m_max && d.temperature_2m_max[0];
+    const rawMin = d.temperature_2m_min && d.temperature_2m_min[0];
     facts.weather = {
-      todayMax: d.temperature_2m_max && d.temperature_2m_max[0],
-      todayMin: d.temperature_2m_min && d.temperature_2m_min[0],
+      todayMax: rawMax,
+      todayMin: rawMin,
+      todayMaxRounded: rawMax != null ? Math.round(rawMax) : null,
+      todayMinRounded: rawMin != null ? Math.round(rawMin) : null,
       todayDesc: wmoDescription((d.weather_code && d.weather_code[0]) || 0),
       windMax: d.wind_speed_10m_max && d.wind_speed_10m_max[0],
     };
@@ -939,29 +983,44 @@ async function collectFacts(env, ctx) {
 async function buildPage500(sub, env, ctx) {
   const now = new Date().toISOString();
   const facts = await collectFacts(env, ctx);
-  const { text, mode } = await aiDigest(facts, env);
+  const { text, mode, reason, checked } = await aiDigest(facts, env);
 
-  // Wrap text into 38-char lines (2 char indent), up to 20 lines
+  // Wrap text into 38-char lines (2 char indent)
   const wrapped = wrap(text, 38).map(l => ({ text: '  ' + l.trimEnd(), color: 'white' }));
   const statusColor = mode === 'AI' ? 'cyan' : 'yellow';
 
+  // Source line: different text per mode
+  const srcLine = mode === 'AI'
+    ? 'SRC WORKERS AI, NUMBERS CHECKED'
+    : `SRC TEMPLATE (AI ${toAscii(reason || 'unavailable').slice(0, 16)})`;
+
   const lines = [
     { text: '', color: 'white' },
-    { text: `SOURCE: ${mode}`, color: statusColor },
+    { text: mode === 'AI'
+        ? `${checked} numbers checked vs source data`
+        : `TEMPLATE (${toAscii(reason || '').slice(0, 28)})`,
+      color: statusColor },
     { text: '', color: 'white' },
     ...wrapped,
   ];
 
-  const subpages = paginate(lines, 20);
-  return assemblePage(500, sub, `DIGEST [${mode}]`, subpages,
+  const digestField = { mode, reason, checked };
+
+  const page = assemblePage(500, sub, `DIGEST [${mode}]`, paginate(lines, 20),
     [
       { color: 'red',    num: 100, label: 'INDEX' },
       { color: 'green',  num: 101, label: 'NOW' },
       { color: 'yellow', num: 400, label: 'FCST' },
       { color: 'cyan',   num: 200, label: 'QUAKE' },
     ],
-    'Cloudflare Workers AI',
+    mode === 'AI' ? 'WORKERS AI' : 'TEMPLATE',
     now);
+
+  // Override the srcLine produced by assemblePage
+  page.srcLine = srcLine;
+  // Add digest metadata for the JSON response
+  page.digest = digestField;
+  return page;
 }
 
 // ---------------------------------------------------------------------------

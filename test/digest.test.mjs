@@ -162,9 +162,11 @@ function makeFacts(extra = {}) {
 
 describe('aiDigest', () => {
   it('returns TEMPLATE mode when env.AI is absent', async () => {
-    const { text, mode } = await aiDigest(makeFacts(), null);
+    const { text, mode, reason, checked } = await aiDigest(makeFacts(), null);
     assert.equal(mode, 'TEMPLATE');
     assert.ok(text.length > 0);
+    assert.ok(typeof reason === 'string');
+    assert.ok(typeof checked === 'number');
   });
 
   it('returns TEMPLATE mode when env has no AI binding', async () => {
@@ -191,8 +193,9 @@ describe('aiDigest', () => {
         run: async (_model, _opts) => ({ response: 'There were 99 earthquakes.' }),
       },
     };
-    const { text, mode } = await aiDigest(facts, fakeEnv);
+    const { text, mode, reason } = await aiDigest(facts, fakeEnv);
     assert.equal(mode, 'TEMPLATE');
+    assert.ok(reason.includes('ungrounded'), `reason should mention ungrounded, got: ${reason}`);
   });
 
   it('falls back to TEMPLATE when AI throws', async () => {

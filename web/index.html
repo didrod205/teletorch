@@ -80,7 +80,7 @@ body.torch-on #torch-overlay{display:block}
 
 /* Digit display */
 #digit-display{
-  font-size:clamp(16px,3.5vw,32px);
+  font-size:22px;
   color:#ff0;
   letter-spacing:4px;
   text-align:center;
@@ -114,7 +114,7 @@ body.torch-on #torch-overlay{display:block}
   border:none;
   cursor:pointer;
   font-family:inherit;
-  font-size:clamp(9px,1.6vw,13px);
+  font-size:14px;
   text-align:center;
   font-style:normal;
   font-weight:bold;
@@ -131,12 +131,20 @@ body.torch-on #torch-overlay{display:block}
 #keypad-area{
   display:flex;
   gap:8px;
-  align-items:flex-start;
-  flex-wrap:wrap;
+  align-items:center;
+  flex-wrap:nowrap;
+}
+#digit-col{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
 }
 #keypad{
   display:grid;
   gap:3px;
+  flex:1;
 }
 /* desktop: 1 row of 11 buttons */
 #keypad.kp-wide{
@@ -197,7 +205,6 @@ body.torch-on #torch-overlay{display:block}
 #torch-row{
   display:flex;align-items:center;gap:6px;
 }
-#torch-label{color:#888;font-size:clamp(9px,1.4vw,12px)}
 #torch-btn{
   background:#111;color:#888;border:1px solid #444;
   padding:3px 8px;cursor:pointer;font-family:inherit;
@@ -240,7 +247,7 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
   </div>
 
   <div id="keypad-area">
-    <div>
+    <div id="digit-col">
       <div id="digit-row">
         <span id="digit-label">P</span>
         <div id="digit-display" aria-live="polite" aria-label="Page number being typed">___</div>
@@ -273,8 +280,7 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
   </div>
 
   <div id="torch-row">
-    <span id="torch-label">Torch:</span>
-    <button id="torch-btn" aria-pressed="false" aria-label="Toggle torch mode">Off</button>
+    <button id="torch-btn" aria-pressed="false" aria-label="Toggle torch mode">Torch: off</button>
   </div>
 </div>
 
@@ -374,6 +380,8 @@ function syncLayout() {
 
   // Measure controls height after current layout so it is accurate
   // (first call: controls not yet positioned; subsequent calls are accurate)
+  var footer = document.getElementById('footer');
+  var footerH = footer ? footer.offsetHeight + 10 : 22;
   var ctrlH = controls.offsetHeight || 180;
 
   // Box width W = min(1000, 94vw)
@@ -384,7 +392,7 @@ function syncLayout() {
 
   if (!isMobile) {
     // Desktop: constrain H so it fits in the viewport
-    var maxH = Math.max(100, window.innerHeight - ctrlH - 24);
+    var maxH = Math.max(100, window.innerHeight - ctrlH - footerH - 24);
     var H = Math.min(W * 3 / 4, maxH);
     W = H * 4 / 3;  // re-derive W from the (possibly clamped) H
 
@@ -672,7 +680,7 @@ function setPlace() {
 torchBtn.addEventListener('click', function(){
   torchOn = !torchOn;
   document.body.classList.toggle('torch-on', torchOn);
-  torchBtn.textContent = torchOn ? 'On' : 'Off';
+  torchBtn.textContent = torchOn ? 'Torch: on' : 'Torch: off';
   torchBtn.setAttribute('aria-pressed', String(torchOn));
   drawTorch();
 });

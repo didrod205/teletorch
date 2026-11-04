@@ -249,7 +249,8 @@ export const FASTEXT_COLORS = ['red', 'green', 'yellow', 'cyan'];
 
 /**
  * Build the 40-char fastext row (row 24).
- * Up to 4 links, each in a 10-char slot: " NNN LABEL" truncated to 10 chars.
+ * Each slot is 10 chars: " NNN LABEL" where LABEL is at most 6 chars.
+ * This guarantees "NNN LABEL" (3+1+6=10, with leading space) never wraps.
  * @param {Array<{color: string, num: number, label: string}>} links
  * @returns {string} exactly 40 chars
  */
@@ -260,7 +261,8 @@ export function fastext(links) {
     const idx = order.indexOf(link.color);
     if (idx === -1) continue;
     const num = String(link.num).padStart(3, '0');
-    const label = toAscii(String(link.label || '')).slice(0, 5);
+    // Limit label to 6 characters so " NNN LABEL" fits in 10 chars (1+3+1+6=11 -> clip to 10)
+    const label = toAscii(String(link.label || '')).slice(0, 6);
     slots[idx] = (' ' + num + ' ' + label).padEnd(10, ' ').slice(0, 10);
   }
   // Fill unused slots with spaces
@@ -273,6 +275,14 @@ export function fastext(links) {
 
 /**
  * Render a page object to a 24x40 grid.
+ *
+ * Row layout:
+ *   Row  0 (1st):  header -- white
+ *   Row  1 (2nd):  title band -- yellow text on blue background (flagged in colors as 'title')
+ *   Rows 2-21:     body lines (20 lines) from page.lines
+ *   Row 22 (23rd): source line -- green "SRC <short> HH:MM UTC" from page.srcLine
+ *   Row 23 (24th): fastext row
+ *
  * @param {object} page
  *   - num {number}
  *   - sub {number} 1-based
@@ -280,27 +290,25 @@ export function fastext(links) {
  *   - title {string}
  *   - lines {Array<{text: string, color?: string}>}
  *   - links {Array<{color: string, num: number, label: string}>}
+ *   - srcLine {string}  content for row 22; e.g. "SRC USGS 12:04 UTC"
  * @param {string} nowUtc  ISO-8601 UTC timestamp
  * @returns {{ rows: string[], colors: string[] }}  24 elements each
  */
 export function render(page, nowUtc) {
-  const { num = 100, sub = 1, subs = 1, title = '', lines = [], links = [] } = page || {};
+  const { num = 100, sub = 1, subs = 1, title = '', lines = [], links = [], srcLine = '' } = page || {};
 
   const rows = [];
   const colors = [];
 
-  // Row 0: header (white on black by convention)
+  // Row 0: header (white on black)
   rows.push(header(num, sub, subs, nowUtc));
   colors.push('white');
 
-  // Row 1: title (yellow)
+  // Row 1: title band (yellow text; 'title' color signals blue BG in front-end)
   rows.push(pad(toAscii(String(title)), WIDTH));
-  colors.push('yellow');
+  colors.push('title');
 
-  // Rows 2-21: body lines (20 body rows; row 22 reserved for "more" indicator if needed)
-  // We use up to BODY_ROWS - 2 = 20 lines from the provided lines array for interior body
-  // Actually: rows 1 = header, 2 = title, 3-22 = body (20 lines), 23 = blank/more, 24 = fastext
-  // Indices: 0=header,1=title,2-21=body(20),22=blank,23=fastext
+  // Rows 2-21: body lines (20 lines)
   const BODY_LINES = 20;
   for (let i = 0; i < BODY_LINES; i++) {
     const line = lines[i];
@@ -313,13 +321,13 @@ export function render(page, nowUtc) {
     }
   }
 
-  // Row 22 (index 22): blank separator
-  rows.push(pad('', WIDTH));
-  colors.push('white');
+  // Row 22: source line (green)
+  rows.push(pad(toAscii(String(srcLine || '')), WIDTH));
+  colors.push('green');
 
-  // Row 23 (index 23): fastext
+  // Row 23: fastext
   rows.push(fastext(links));
-  colors.push('white');
+  colors.push('fastext');
 
   // Sanity: ensure exactly 24 rows of exactly 40 chars
   const result = rows.map(r => pad(String(r), WIDTH));
@@ -340,5 +348,5 @@ export function render(page, nowUtc) {
  * @returns {object}
  */
 export function blankPage(num, title = '') {
-  return { num, sub: 1, subs: 1, title, lines: [], links: [] };
+  return { num, sub: 1, subs: 1, title, lines: [], links: [], srcLine: '' };
 }

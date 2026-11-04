@@ -353,6 +353,7 @@ describe('render', () => {
     const page = {
       num: 100, sub: 1, subs: 1, title: 'IDX', lines: [],
       links: [{ color: 'red', num: 100, label: 'IDX' }],
+      srcLine: '',
     };
     const { rows } = render(page, NOW);
     assert.ok(rows[23].includes('100'));

@@ -9,41 +9,46 @@
 html,body{background:#000;color:#fff;font-family:Consolas,"Courier New",Courier,monospace;min-height:100vh;user-select:none}
 body{display:flex;flex-direction:column;align-items:center;padding:8px 4px 16px}
 
-/* TV screen wrapper -- 4:3 aspect, max 1100px, min 320px */
+/* TV screen: exact 40-col monospace grid */
 #screen-wrap{
   position:relative;
-  width:min(calc(100vw - 8px),1100px);
-  aspect-ratio:4/3;
-  background:#111;
-  border:2px solid #333;
+  background:#000;
+  border:1px solid #333;
   overflow:hidden;
   cursor:crosshair;
+  /* width set by JS */
 }
 #screen{
-  position:absolute;inset:0;
-  display:grid;
-  grid-template-columns:1fr;
-  grid-template-rows:repeat(24,1fr);
-  width:100%;height:100%;
-  font-size:clamp(6px,2.1vw,22px);
-  line-height:1;
-  overflow:hidden;
+  display:block;
+  white-space:pre;
+  line-height:1.15;
+  /* font-size and width set by JS */
 }
-/* Each row is a single div, font-size via parent */
+/* Each row span */
 .row{
-  display:flex;
-  align-items:center;
+  display:block;
   white-space:pre;
   overflow:hidden;
   font-family:inherit;
   font-size:inherit;
+  line-height:inherit;
   font-style:normal;
-  padding:0 2px;
-  transition:opacity 0.1s;
 }
-.row span{letter-spacing:0;font-style:normal}
 
-/* Torch overlay -- covers the screen, pointer-events:none */
+/* Title band: row index 1 -- blue BG, yellow text */
+.row-title{
+  background:#0000C8;
+  display:block;
+}
+
+/* Fastext row: row index 23 -- coloured labels */
+.row-fastext .ft-red    { color:#f00 }
+.row-fastext .ft-green  { color:#0f0 }
+.row-fastext .ft-yellow { color:#ff0 }
+.row-fastext .ft-cyan   { color:#0ff }
+.row-fastext .ft-white  { color:#fff }
+
+/* Torch overlay */
 #torch-overlay{
   position:absolute;inset:0;
   pointer-events:none;
@@ -52,7 +57,7 @@ body{display:flex;flex-direction:column;align-items:center;padding:8px 4px 16px}
 }
 body.torch-on #torch-overlay{display:block}
 
-/* Colour classes */
+/* Colour classes for normal rows */
 .c-white   {color:#fff}
 .c-yellow  {color:#ff0}
 .c-cyan    {color:#0ff}
@@ -60,68 +65,92 @@ body.torch-on #torch-overlay{display:block}
 .c-red     {color:#f00}
 .c-magenta {color:#f0f}
 .c-blue    {color:#4d7cff}
+.c-title   {color:#ff0}  /* yellow text on blue BG */
 
 /* Controls below the screen */
 #controls{
-  width:min(calc(100vw - 8px),1100px);
-  margin-top:8px;
+  margin-top:6px;
   display:flex;
   flex-direction:column;
+  gap:6px;
+  /* width matched to screen-wrap by JS */
+}
+
+/* Digit display */
+#digit-display{
+  font-size:clamp(16px,3.5vw,32px);
+  color:#ff0;
+  letter-spacing:4px;
+  text-align:center;
+  border-bottom:2px solid #ff0;
+  padding:2px 0;
+  min-width:4ch;
+  display:inline-block;
+}
+#digit-label{
+  color:#888;
+  font-size:clamp(9px,1.4vw,12px);
+  margin-right:6px;
+  display:inline;
+}
+#digit-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
   gap:8px;
 }
 
-/* Place bar */
-#place-bar{
+/* Fastext buttons row */
+#fastext-row{
   display:flex;
-  gap:6px;
-  align-items:center;
-  flex-wrap:wrap;
+  gap:4px;
 }
-#place-bar label{color:#0ff;font-size:clamp(10px,1.8vw,14px)}
-#place-input{
-  flex:1;min-width:120px;
-  background:#111;color:#fff;border:1px solid #444;
-  padding:4px 6px;font-family:inherit;
-  font-size:clamp(10px,1.8vw,14px);
+.fbtn{
+  flex:1;
+  padding:5px 2px;
+  background:#111;
+  border:none;
+  cursor:pointer;
+  font-family:inherit;
+  font-size:clamp(9px,1.6vw,13px);
+  text-align:center;
+  font-style:normal;
+  font-weight:bold;
+  color:#000;
 }
-#place-input:focus{outline:1px solid #0ff}
-#place-btn{
-  background:#111;color:#0ff;border:1px solid #0ff;
-  padding:4px 10px;cursor:pointer;font-family:inherit;
-  font-size:clamp(10px,1.8vw,14px);
-}
-#place-btn:hover{background:#0ff;color:#000}
-#place-name{color:#0f0;font-size:clamp(9px,1.6vw,13px);min-width:80px}
+.fbtn:hover{filter:brightness(1.2)}
+.fbtn:active{filter:brightness(0.7)}
+.fbtn-red    {background:#f00}
+.fbtn-green  {background:#0f0}
+.fbtn-yellow {background:#ff0}
+.fbtn-cyan   {background:#0ff}
 
-/* Digit display + keypad row */
-#keypad-row{
+/* Keypad */
+#keypad-area{
   display:flex;
-  gap:12px;
+  gap:8px;
   align-items:flex-start;
   flex-wrap:wrap;
 }
-#digit-display{
-  font-size:clamp(18px,4vw,36px);
-  color:#ff0;letter-spacing:6px;
-  width:6ch;text-align:center;
-  border-bottom:2px solid #ff0;
-  padding:2px 4px;
-  min-width:80px;
-}
-
-/* Keypad grid */
 #keypad{
   display:grid;
+  gap:3px;
+}
+/* desktop: 1 row of 11 buttons */
+#keypad.kp-wide{
+  grid-template-columns:repeat(11,1fr);
+}
+/* mobile: 4x3 grid */
+#keypad.kp-narrow{
   grid-template-columns:repeat(3,1fr);
-  gap:4px;
-  width:clamp(110px,20vw,180px);
 }
 .kbtn{
   background:#111;color:#fff;border:1px solid #555;
-  padding:clamp(4px,1vw,8px) 0;
+  padding:5px 0;
   cursor:pointer;font-family:inherit;
-  font-size:clamp(11px,2vw,16px);
+  font-size:clamp(11px,1.8vw,15px);
   text-align:center;
+  min-width:28px;
 }
 .kbtn:hover{background:#333}
 .kbtn:active{background:#555}
@@ -130,52 +159,55 @@ body.torch-on #torch-overlay{display:block}
 
 /* Sub-page arrows */
 #subpage-btns{
-  display:flex;flex-direction:column;gap:4px;
-  justify-content:center;
+  display:flex;flex-direction:column;gap:3px;
 }
 .spbtn{
   background:#111;color:#fff;border:1px solid #555;
-  padding:4px 10px;cursor:pointer;font-family:inherit;
-  font-size:clamp(11px,2vw,16px);
+  padding:5px 8px;cursor:pointer;font-family:inherit;
+  font-size:clamp(11px,1.8vw,14px);
 }
 .spbtn:hover{background:#333}
 
-/* Fastext buttons */
-#fastext-row{
-  display:flex;gap:6px;flex-wrap:wrap;
+/* Place bar */
+#place-bar{
+  display:flex;
+  gap:5px;
+  align-items:center;
+  flex-wrap:wrap;
 }
-.fbtn{
-  flex:1;min-width:60px;
-  padding:clamp(4px,1vw,8px) 4px;
-  background:#111;border:none;
-  cursor:pointer;font-family:inherit;
-  font-size:clamp(10px,1.8vw,14px);
-  text-align:center;font-style:normal;
+#place-bar label{color:#0ff;font-size:clamp(10px,1.6vw,13px)}
+#place-input{
+  flex:1;min-width:100px;
+  background:#111;color:#fff;border:1px solid #444;
+  padding:4px 5px;font-family:inherit;
+  font-size:clamp(10px,1.6vw,13px);
 }
-.fbtn:hover{filter:brightness(1.3)}
-.fbtn:active{filter:brightness(0.7)}
-.fbtn-red    {color:#f00;border:1px solid #f00}
-.fbtn-green  {color:#0f0;border:1px solid #0f0}
-.fbtn-yellow {color:#ff0;border:1px solid #ff0}
-.fbtn-cyan   {color:#0ff;border:1px solid #0ff}
+#place-input:focus{outline:1px solid #0ff}
+#place-btn{
+  background:#111;color:#0ff;border:1px solid #0ff;
+  padding:4px 8px;cursor:pointer;font-family:inherit;
+  font-size:clamp(10px,1.6vw,13px);
+}
+#place-btn:hover{background:#0ff;color:#000}
+#place-name{color:#0f0;font-size:clamp(9px,1.4vw,12px);min-width:60px}
 
-/* Torch toggle */
+/* Torch row */
 #torch-row{
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:6px;
 }
-#torch-label{color:#888;font-size:clamp(9px,1.6vw,13px)}
+#torch-label{color:#888;font-size:clamp(9px,1.4vw,12px)}
 #torch-btn{
   background:#111;color:#888;border:1px solid #444;
-  padding:3px 10px;cursor:pointer;font-family:inherit;
-  font-size:clamp(9px,1.6vw,13px);
+  padding:3px 8px;cursor:pointer;font-family:inherit;
+  font-size:clamp(9px,1.4vw,12px);
 }
 body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
 
 /* Footer */
 #footer{
-  margin-top:8px;
+  margin-top:6px;
   color:#555;
-  font-size:clamp(8px,1.4vw,11px);
+  font-size:clamp(8px,1.2vw,10px);
   text-align:center;
 }
 #footer a{color:#4d7cff;text-decoration:none}
@@ -198,18 +230,21 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
 </div>
 
 <div id="controls">
-  <div id="place-bar">
-    <label for="place-input">Place:</label>
-    <input id="place-input" type="text" placeholder="City or lat,lon" autocomplete="off" aria-label="Set place">
-    <button id="place-btn" aria-label="Set place">Set</button>
-    <span id="place-name" aria-live="polite"></span>
+  <div id="fastext-row" role="group" aria-label="Fastext quick links">
+    <button class="fbtn fbtn-red"    id="ft-red"    aria-label="Red fastext">---</button>
+    <button class="fbtn fbtn-green"  id="ft-green"  aria-label="Green fastext">---</button>
+    <button class="fbtn fbtn-yellow" id="ft-yellow" aria-label="Yellow fastext">---</button>
+    <button class="fbtn fbtn-cyan"   id="ft-cyan"   aria-label="Cyan fastext">---</button>
   </div>
 
-  <div id="keypad-row">
+  <div id="keypad-area">
     <div>
-      <div id="digit-display" aria-live="polite" aria-label="Page number being typed">---</div>
+      <div id="digit-row">
+        <span id="digit-label">P</span>
+        <div id="digit-display" aria-live="polite" aria-label="Page number being typed">___</div>
+      </div>
     </div>
-    <div id="keypad" role="group" aria-label="Page number keypad">
+    <div id="keypad" class="kp-wide" role="group" aria-label="Page number keypad">
       <button class="kbtn" data-d="1" aria-label="1">1</button>
       <button class="kbtn" data-d="2" aria-label="2">2</button>
       <button class="kbtn" data-d="3" aria-label="3">3</button>
@@ -219,9 +254,8 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
       <button class="kbtn" data-d="7" aria-label="7">7</button>
       <button class="kbtn" data-d="8" aria-label="8">8</button>
       <button class="kbtn" data-d="9" aria-label="9">9</button>
-      <button class="kbtn kbtn-back" id="btn-back" aria-label="Back/clear">Bk</button>
       <button class="kbtn" data-d="0" aria-label="0">0</button>
-      <button class="kbtn" id="btn-go" aria-label="Go to page">Go</button>
+      <button class="kbtn kbtn-back" id="btn-back" aria-label="Back/clear">Bk</button>
     </div>
     <div id="subpage-btns" aria-label="Sub-page navigation">
       <button class="spbtn" id="btn-prev" aria-label="Previous sub-page">&lt; Prev</button>
@@ -229,11 +263,11 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
     </div>
   </div>
 
-  <div id="fastext-row" role="group" aria-label="Fastext quick links">
-    <button class="fbtn fbtn-red"    id="ft-red"    aria-label="Red fastext">---</button>
-    <button class="fbtn fbtn-green"  id="ft-green"  aria-label="Green fastext">---</button>
-    <button class="fbtn fbtn-yellow" id="ft-yellow" aria-label="Yellow fastext">---</button>
-    <button class="fbtn fbtn-cyan"   id="ft-cyan"   aria-label="Cyan fastext">---</button>
+  <div id="place-bar">
+    <label for="place-input">Place:</label>
+    <input id="place-input" type="text" placeholder="City or lat,lon" autocomplete="off" aria-label="Set place">
+    <button id="place-btn" aria-label="Set place">Set</button>
+    <span id="place-name" aria-live="polite"></span>
   </div>
 
   <div id="torch-row">
@@ -244,10 +278,9 @@ body.torch-on #torch-btn{color:#ff0;border-color:#ff0}
 
 <div id="footer">
   Data: USGS, NASA EONET, Open-Meteo (<a href="/p/199" target="_blank">CC BY 4.0</a>).
-  Also as text: <a href="/p/100.txt">/p/100.txt</a>
+  Text: <a href="/p/100.txt">/p/100.txt</a>
 </div>
 
-<!-- Visually hidden aria-live text block -->
 <pre id="a11y-text" aria-live="polite" aria-atomic="true"></pre>
 
 <script>
@@ -261,10 +294,10 @@ var curPage   = 100;
 var curSub    = 1;
 var curSubs   = 1;
 var curLinks  = [];
-var digits    = '';   // 0-3 chars being typed
+var digits    = '';
 var torchOn   = false;
-var torchRow  = 12;   // 0-23, beam centre
-var fetchCtrl = null; // AbortController for in-flight fetch
+var torchRow  = 12;
+var fetchCtrl = null;
 
 // ---------------------------------------------------------------------------
 // Colour map
@@ -276,7 +309,8 @@ var COL = {
   green:   '#00ff00',
   red:     '#ff0000',
   magenta: '#ff00ff',
-  blue:    '#4d7cff'
+  blue:    '#4d7cff',
+  title:   '#ffff00'   // yellow text, but row gets blue BG via row-title class
 };
 
 // ---------------------------------------------------------------------------
@@ -291,6 +325,8 @@ var placeName   = document.getElementById('place-name');
 var torchBtn    = document.getElementById('torch-btn');
 var a11yText    = document.getElementById('a11y-text');
 var screenWrap  = document.getElementById('screen-wrap');
+var controls    = document.getElementById('controls');
+var keypad      = document.getElementById('keypad');
 var ftBtns      = {
   red:    document.getElementById('ft-red'),
   green:  document.getElementById('ft-green'),
@@ -305,15 +341,84 @@ var rowDivs = [];
 for (var i = 0; i < 24; i++) {
   var d = document.createElement('div');
   d.className = 'row';
-  var sp = document.createElement('span');
-  d.appendChild(sp);
   screen.appendChild(d);
-  rowDivs.push(sp);
+  rowDivs.push(d);
+}
+
+// ---------------------------------------------------------------------------
+// Font sizing: measure actual char width then scale to fill screen
+// ---------------------------------------------------------------------------
+var measureSpan = document.createElement('span');
+measureSpan.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:Consolas,"Courier New",Courier,monospace;font-size:100px';
+measureSpan.textContent = '0'.repeat(40);
+document.body.appendChild(measureSpan);
+
+function computeScreenWidth() {
+  // Screen width = min(1000px, 94vw, (innerHeight - 230px) * 4/3)
+  var vw94 = window.innerWidth * 0.94;
+  var fromH = (window.innerHeight - 230) * (4 / 3);
+  return Math.max(200, Math.min(1000, Math.min(vw94, fromH)));
+}
+
+function syncLayout() {
+  var sw = computeScreenWidth();
+  screenWrap.style.width = sw + 'px';
+  controls.style.width = sw + 'px';
+
+  // Measure: how wide is a 40-char string at 100px?
+  measureSpan.style.fontSize = '100px';
+  var charW100 = measureSpan.offsetWidth / 40;
+  // Target: 40 chars fill sw px
+  var fs = sw / (charW100 / 100);   // fs = sw * 100 / charW100
+  // Clamp to reasonable range
+  fs = Math.max(6, Math.min(40, fs));
+  screen.style.fontSize = fs + 'px';
+
+  // Screen height = 24 lines * lineHeight
+  var lh = fs * 1.15;
+  screenWrap.style.height = Math.ceil(24 * lh) + 'px';
+
+  // Keypad layout: wide if > 600px, narrow otherwise
+  if (sw >= 560) {
+    keypad.className = 'kp-wide';
+  } else {
+    keypad.className = 'kp-narrow';
+  }
+
+  // Canvas sync
+  overlay.width  = screenWrap.offsetWidth;
+  overlay.height = screenWrap.offsetHeight;
 }
 
 // ---------------------------------------------------------------------------
 // Render page data into the screen
 // ---------------------------------------------------------------------------
+
+// Parse fastext row (row 23) into coloured spans.
+// Each 10-char slot maps to a colour.
+function renderFastextRow(text, links) {
+  var rowEl = rowDivs[23];
+  rowEl.className = 'row row-fastext';
+  rowEl.innerHTML = '';
+
+  // Build a map: slot index -> colour
+  var slotColors = ['white', 'white', 'white', 'white'];
+  var colorOrder = ['red', 'green', 'yellow', 'cyan'];
+  for (var i = 0; i < links.length; i++) {
+    var idx = colorOrder.indexOf(links[i].color);
+    if (idx !== -1) slotColors[idx] = links[i].color;
+  }
+
+  for (var s = 0; s < 4; s++) {
+    var chunk = (text || '').slice(s * 10, s * 10 + 10);
+    if (chunk.length < 10) chunk = chunk + ' '.repeat(10 - chunk.length);
+    var sp = document.createElement('span');
+    sp.className = 'ft-' + slotColors[s];
+    sp.textContent = chunk;
+    rowEl.appendChild(sp);
+  }
+}
+
 function renderPage(data) {
   var rows   = data.rows   || [];
   var colors = data.colors || [];
@@ -325,16 +430,28 @@ function renderPage(data) {
   for (var i = 0; i < 24; i++) {
     var text  = rows[i]   || '                                        ';
     var color = colors[i] || 'white';
-    var col   = COL[color] || '#ffffff';
-    rowDivs[i].textContent  = text;
-    rowDivs[i].style.color  = col;
+
+    if (i === 23) {
+      // Fastext row: multi-colour spans
+      renderFastextRow(text, curLinks);
+    } else if (i === 1 || color === 'title') {
+      // Title band: blue BG, yellow text
+      rowDivs[i].className = 'row row-title c-title';
+      rowDivs[i].textContent = text;
+    } else {
+      var col = COL[color] || '#ffffff';
+      rowDivs[i].className = 'row';
+      rowDivs[i].style.color = col;
+      rowDivs[i].textContent = text;
+    }
+
     plainText += text + '\n';
   }
 
   // Aria-live text
   a11yText.textContent = (data.title || '') + '\n' + plainText;
 
-  // Fastext labels
+  // Fastext button labels
   var colorOrder = ['red','green','yellow','cyan'];
   colorOrder.forEach(function(c){ ftBtns[c].textContent = '---'; ftBtns[c].dataset.num = ''; });
   curLinks.forEach(function(lk){
@@ -344,7 +461,6 @@ function renderPage(data) {
     }
   });
 
-  // Place name from cookie / data
   if (data.placeName) placeName.textContent = data.placeName;
 
   drawTorch();
@@ -354,7 +470,7 @@ function renderPage(data) {
 // Fetch a page
 // ---------------------------------------------------------------------------
 function loadPage(num, sub, extra) {
-  sub  = sub  || 1;
+  sub   = sub   || 1;
   extra = extra || '';
   if (fetchCtrl) fetchCtrl.abort();
   fetchCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -384,13 +500,14 @@ function loadPage(num, sub, extra) {
 function showError(msg) {
   var blank = '                                        ';
   for (var i = 0; i < 24; i++) {
-    rowDivs[i].textContent = blank;
+    rowDivs[i].className = 'row';
     rowDivs[i].style.color = '#ffffff';
+    rowDivs[i].textContent = blank;
   }
+  rowDivs[1].className = 'row row-title c-title';
   rowDivs[1].textContent = 'ERROR                                   ';
-  rowDivs[1].style.color = '#ff0000';
+  rowDivs[3].style.color = '#ff0000';
   rowDivs[3].textContent = (msg + blank).slice(0, 40);
-  rowDivs[3].style.color = '#ffffff';
   a11yText.textContent = 'Error: ' + msg;
 }
 
@@ -400,35 +517,35 @@ function showError(msg) {
 function pushDigit(d) {
   if (digits.length >= 3) digits = '';
   digits += d;
-  digitDisp.textContent = (digits + '---').slice(0, 3);
+  var disp = digits + '___';
+  digitDisp.textContent = disp.slice(0, 3);
   if (digits.length === 3) {
     var num = parseInt(digits, 10);
     digits = '';
-    digitDisp.textContent = '---';
+    digitDisp.textContent = '___';
     loadPage(num, 1);
   }
 }
 
 function clearDigits() {
   digits = '';
-  digitDisp.textContent = '---';
+  digitDisp.textContent = '___';
 }
 
 // ---------------------------------------------------------------------------
 // Keyboard
 // ---------------------------------------------------------------------------
 document.addEventListener('keydown', function(e) {
-  // Don't capture when typing in the place input
   if (document.activeElement === placeInput) return;
 
   if (e.key >= '0' && e.key <= '9') { e.preventDefault(); pushDigit(e.key); return; }
   if (e.key === 'Backspace') { e.preventDefault(); clearDigits(); return; }
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') {
     e.preventDefault();
     if (curSub < curSubs) loadPage(curPage, curSub + 1);
     return;
   }
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
     e.preventDefault();
     if (curSub > 1) loadPage(curPage, curSub - 1);
     return;
@@ -437,7 +554,6 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'F2' || e.key === 'g') { e.preventDefault(); fastextGo('green');  return; }
   if (e.key === 'F3' || e.key === 'y') { e.preventDefault(); fastextGo('yellow'); return; }
   if (e.key === 'F4' || e.key === 'c') { e.preventDefault(); fastextGo('cyan');   return; }
-  // Torch beam move with keyboard
   if (torchOn) {
     if (e.key === 'ArrowUp')   { e.preventDefault(); torchRow = Math.max(0,  torchRow - 1); drawTorch(); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); torchRow = Math.min(23, torchRow + 1); drawTorch(); return; }
@@ -458,15 +574,6 @@ document.getElementById('keypad').addEventListener('click', function(e) {
   var d = btn.dataset.d;
   if (d !== undefined) { pushDigit(d); return; }
   if (btn.id === 'btn-back') { clearDigits(); return; }
-  if (btn.id === 'btn-go') {
-    if (digits.length > 0) {
-      var num = parseInt(digits.padEnd(3,'0'), 10);
-      digits = '';
-      digitDisp.textContent = '---';
-      loadPage(num, 1);
-    }
-    return;
-  }
 });
 
 document.getElementById('btn-prev').addEventListener('click', function(){
@@ -476,7 +583,6 @@ document.getElementById('btn-next').addEventListener('click', function(){
   if (curSub < curSubs) loadPage(curPage, curSub + 1);
 });
 
-// Fastext buttons
 ['red','green','yellow','cyan'].forEach(function(c){
   ftBtns[c].addEventListener('click', function(){ fastextGo(c); });
 });
@@ -490,7 +596,6 @@ placeInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') setPl
 function setPlace() {
   var val = placeInput.value.trim();
   if (!val) return;
-  // Determine if it's lat,lon or a name
   var isCoord = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(val);
   var extra;
   if (isCoord) {
@@ -499,14 +604,12 @@ function setPlace() {
   } else {
     extra = '&place=' + encodeURIComponent(val);
   }
-  // Load page 101 with the place param; cookie will be set by server
   var url = '/p/101.json?s=1' + extra;
   fetch(url, { credentials: 'include' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       curPage = 101; curSub = 1;
       renderPage(data);
-      // Extract place name from the rendered rows (row 2 starts "Place: ...")
       var rows = data.rows || [];
       for (var i = 0; i < rows.length; i++) {
         var m = rows[i].match(/^Place:\s*(.+?)\s*$/);
@@ -528,7 +631,6 @@ torchBtn.addEventListener('click', function(){
   drawTorch();
 });
 
-// Pointer / touch moves the beam
 screenWrap.addEventListener('mousemove', function(e){
   if (!torchOn) return;
   var rect = screenWrap.getBoundingClientRect();
@@ -549,15 +651,12 @@ screenWrap.addEventListener('touchmove', function(e){
 
 function drawTorch() {
   if (!torchOn) {
-    // Remove dim from all rows
-    rowDivs.forEach(function(r){ r.parentNode.style.opacity = ''; });
+    rowDivs.forEach(function(r){ r.style.opacity = ''; });
     return;
   }
-  // Dim rows outside the 3-row band
   for (var i = 0; i < 24; i++) {
-    var row = rowDivs[i].parentNode;
     var inBeam = (i >= torchRow - 1 && i <= torchRow + 1);
-    row.style.opacity = inBeam ? '1' : '0.25';
+    rowDivs[i].style.opacity = inBeam ? '1' : '0.2';
   }
 }
 
@@ -571,46 +670,26 @@ window.addEventListener('popstate', function(e){
 });
 
 // ---------------------------------------------------------------------------
-// Resize: keep canvas in sync (torch overlay sized to match wrapper)
+// Resize
 // ---------------------------------------------------------------------------
-function syncCanvas() {
-  overlay.width  = screenWrap.offsetWidth;
-  overlay.height = screenWrap.offsetHeight;
-}
-window.addEventListener('resize', syncCanvas);
-
-// ---------------------------------------------------------------------------
-// Font size: ensure 40 chars fill the row exactly
-// We compute cell width = wrapper_width / 40, set font-size to that * 0.6
-// (approximate monospace em ~0.6 of font-size; clamp in CSS handles extremes)
-// ---------------------------------------------------------------------------
-function syncFont() {
-  var w = screenWrap.offsetWidth;
-  var h = screenWrap.offsetHeight;
-  // font-size such that 40 chars fill width
-  // monospace char width ≈ 0.6 * font-size; so font-size = w / (40 * 0.6)
-  var fs = Math.max(6, Math.min(22, (w / 40) * 0.6));
-  screen.style.fontSize = fs + 'px';
-  // Also row height should be h/24
-  // We use grid so that's automatic; just ensure no overflow
-}
-window.addEventListener('resize', syncFont);
+var resizeTimer;
+window.addEventListener('resize', function(){
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(syncLayout, 60);
+});
 
 // ---------------------------------------------------------------------------
 // Initial load
 // ---------------------------------------------------------------------------
 (function init(){
-  syncCanvas();
-  syncFont();
+  syncLayout();
 
-  // Determine initial page from URL path /p/<num>
   var m = window.location.pathname.match(/\/p\/(\d{3})/);
   var initPage = m ? parseInt(m[1], 10) : 100;
   var initSub  = 1;
   var sp = new URLSearchParams(window.location.search).get('s');
   if (sp) initSub = parseInt(sp, 10) || 1;
 
-  // Pass any place params from URL query
   var extra = '';
   var qp = new URLSearchParams(window.location.search);
   if (qp.get('place')) extra = '&place=' + encodeURIComponent(qp.get('place'));

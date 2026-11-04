@@ -4,6 +4,16 @@
  * buildPage(num, sub, env, ctx) is the main entry point.
  * Each builder receives pre-fetched data objects and never fetches directly.
  * All layout goes through teletext.mjs.
+ *
+ * Colour scheme:
+ *   Row 0 (header): white
+ *   Row 1 (title):  'title' (yellow text, blue BG in front-end)
+ *   Section headings: cyan
+ *   Data rows: white
+ *   Source/credit line (row 22): green  -- set via srcLine
+ *   Warnings / SOURCE UNAVAILABLE: red
+ *   AQI Good: green  Moderate: yellow  Unhealthy+: red
+ *   AI digest mode line: cyan (AI) or yellow (TEMPLATE)
  */
 
 import { pad, wrap, columns, paginate, render, blankPage, toAscii } from './teletext.mjs';
@@ -83,6 +93,14 @@ export function aqiCategory(aqi) {
   return 'Hazardous';
 }
 
+/** Return colour for an AQI value */
+function aqiColor(aqi) {
+  if (aqi == null) return 'white';
+  if (aqi <= 50)  return 'green';
+  if (aqi <= 100) return 'yellow';
+  return 'red';
+}
+
 // ---------------------------------------------------------------------------
 // Haversine distance (km) between two lat/lon points
 // ---------------------------------------------------------------------------
@@ -108,12 +126,13 @@ export function haversine(lat1, lon1, lat2, lon2) {
 
 // ---------------------------------------------------------------------------
 // Shared fastext link sets
+// Labels: max 6 chars so " NNN LABEL" (10 chars) is never cut.
 // ---------------------------------------------------------------------------
 const LINKS_INDEX = [
   { color: 'red',    num: 100, label: 'INDEX' },
-  { color: 'green',  num: 200, label: 'QUAKES' },
+  { color: 'green',  num: 200, label: 'QUAKE' },
   { color: 'yellow', num: 300, label: 'EVENTS' },
-  { color: 'cyan',   num: 400, label: 'WEATHER' },
+  { color: 'cyan',   num: 400, label: 'FCST' },
 ];
 
 const LINKS_QUAKE = [
@@ -164,6 +183,21 @@ function fmtMag(mag) {
   return 'M' + Number(mag).toFixed(1);
 }
 
+/**
+ * Build the green source line for row 22.
+ * Format: "SRC <SOURCE> HH:MM UTC"
+ * @param {string} shortSource  e.g. "USGS", "NASA EONET", "OPEN-METEO"
+ * @param {string} fetchedAt    ISO timestamp
+ * @returns {string}
+ */
+function buildSrcLine(shortSource, fetchedAt) {
+  let timeStr = '--:-- UTC';
+  if (typeof fetchedAt === 'string' && fetchedAt.length >= 16) {
+    timeStr = fetchedAt.slice(11, 16) + ' UTC';
+  }
+  return `SRC ${shortSource} ${timeStr}`;
+}
+
 /** Return a "SOURCE UNAVAILABLE" line set */
 function unavailableLines(sourceName) {
   return [
@@ -179,17 +213,16 @@ function quakeLines(features) {
   const lines = [];
   for (const f of features) {
     const p = f.properties || {};
-    const coords = (f.geometry && f.geometry.coordinates) || [];
     const mag = fmtMag(p.mag);
     const time = fmtTime(p.time);
     const place = toAscii(String(p.place || 'Unknown location'));
-    // Row 1: "M4.5  12:04 UTC  Felt: 2"
-    const felt = p.felt ? ` Felt:${p.felt}` : '';
-    const row1 = columns([mag, time + felt], [5, 35]);
-    // Row 2: place (wrapped if long)
-    const placeLines = wrap(place, 38).slice(0, 1);
-    lines.push({ text: row1, color: 'yellow' });
-    lines.push({ text: ' ' + placeLines[0].trimEnd(), color: 'white' });
+    // Felt reports: "130 felt" or empty
+    const feltStr = p.felt ? ` ${p.felt} felt` : '';
+    // Row 1: "M4.5  12:04 UTC  130 felt"
+    const row1 = columns([mag, time + feltStr], [5, 35]);
+    // Row 2: place (indented, truncated)
+    lines.push({ text: row1, color: 'cyan' });
+    lines.push({ text: ' ' + toAscii(place).slice(0, 37), color: 'white' });
   }
   return lines;
 }
@@ -201,7 +234,7 @@ function quakeLines(features) {
  * @param {string} title
  * @param {string[][]} subpages  array of line arrays
  * @param {Array} links
- * @param {string} source
+ * @param {string} source       display name for source line
  * @param {string} fetchedAt
  * @returns {object}
  */
@@ -217,6 +250,7 @@ function assemblePage(num, sub, title, subpages, links, source, fetchedAt) {
     links,
     source,
     fetchedAt,
+    srcLine: buildSrcLine(source, fetchedAt),
   };
 }
 
@@ -226,8 +260,6 @@ function assemblePage(num, sub, title, subpages, links, source, fetchedAt) {
 
 /**
  * Extract place from the env-like object. Returns { lat, lon, name } or null.
- * The worker passes place info through a plain JS object keyed by
- * { placeLat, placeLon, placeName }.
  */
 function getPlace(env) {
   if (!env) return null;
@@ -252,23 +284,24 @@ const NO_PLACE_LINES = [
 // ---------------------------------------------------------------------------
 
 function buildPage100() {
+  const now = new Date().toISOString();
   const lines = [
     { text: '', color: 'white' },
     { text: 'LIVE INFORMATION SERVICE', color: 'cyan' },
     { text: '', color: 'white' },
-    { text: '200  Earthquakes M4.5+ past 24h', color: 'yellow' },
-    { text: '201  Significant quakes past 7 days', color: 'yellow' },
-    { text: '202  Nearest quakes within 1000 km', color: 'yellow' },
+    { text: '200  Earthquakes M4.5+ past 24h', color: 'white' },
+    { text: '201  Significant quakes past 7 days', color: 'white' },
+    { text: '202  Nearest quakes within 1000 km', color: 'white' },
     { text: '', color: 'white' },
-    { text: '300  Natural events (NASA EONET)', color: 'green' },
-    { text: '301  Wildfires', color: 'green' },
-    { text: '302  Severe storms', color: 'green' },
-    { text: '303  Volcanoes', color: 'green' },
-    { text: '304  Floods', color: 'green' },
-    { text: '305  Other events', color: 'green' },
+    { text: '300  Natural events (NASA EONET)', color: 'white' },
+    { text: '301  Wildfires', color: 'white' },
+    { text: '302  Severe storms', color: 'white' },
+    { text: '303  Volcanoes', color: 'white' },
+    { text: '304  Floods', color: 'white' },
+    { text: '305  Other events', color: 'white' },
     { text: '', color: 'white' },
-    { text: '400  7-day weather forecast', color: 'cyan' },
-    { text: '401  Air quality (AQI + PM2.5)', color: 'cyan' },
+    { text: '400  7-day weather forecast', color: 'white' },
+    { text: '401  Air quality (AQI + PM2.5)', color: 'white' },
     { text: '', color: 'white' },
     { text: '101  Right now at your location', color: 'white' },
     { text: '199  Sources and licences', color: 'white' },
@@ -280,7 +313,8 @@ function buildPage100() {
     lines,
     links: LINKS_INDEX,
     source: 'Teletorch',
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now,
+    srcLine: buildSrcLine('TELETORCH', now),
   };
 }
 
@@ -289,6 +323,7 @@ function buildPage100() {
 // ---------------------------------------------------------------------------
 
 async function buildPage101(sub, env, ctx) {
+  const now = new Date().toISOString();
   const place = getPlace(env);
   if (!place) {
     return {
@@ -297,7 +332,8 @@ async function buildPage101(sub, env, ctx) {
       lines: NO_PLACE_LINES,
       links: LINKS_WEATHER,
       source: 'Teletorch',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('TELETORCH', now),
     };
   }
 
@@ -320,7 +356,7 @@ async function buildPage101(sub, env, ctx) {
     const code = d.weather_code && d.weather_code[0];
     const wind = d.wind_speed_10m_max && d.wind_speed_10m_max[0];
     const desc = wmoDescription(code);
-    lines.push({ text: 'WEATHER TODAY', color: 'yellow' });
+    lines.push({ text: 'WEATHER TODAY', color: 'cyan' });
     if (tmax != null && tmin != null) {
       lines.push({ text: `  ${desc}`, color: 'white' });
       lines.push({ text: `  High ${tmax}C  Low ${tmin}C`, color: 'white' });
@@ -334,13 +370,14 @@ async function buildPage101(sub, env, ctx) {
 
   lines.push({ text: '', color: 'white' });
 
-  // Air quality
+  // Air quality -- show as "AQI 154 Unhealthy (model)"
   if (aqResult.ok && aqResult.current) {
     const aqi = aqResult.current.us_aqi;
     const pm = aqResult.current.pm2_5;
-    const cat = aqiCategory(aqi);
-    lines.push({ text: 'AIR QUALITY', color: 'yellow' });
-    lines.push({ text: `  AQI ${aqi} - ${cat}`, color: 'white' });
+    const cat = aqiCategory(aqi != null ? aqi : 0);
+    const col = aqiColor(aqi);
+    lines.push({ text: 'AIR QUALITY', color: 'cyan' });
+    lines.push({ text: `  AQI ${aqi != null ? aqi : 'N/A'} ${cat} (model)`, color: col });
     if (pm != null) lines.push({ text: `  PM2.5: ${pm} ug/m3`, color: 'white' });
   } else {
     lines.push({ text: 'AIR QUALITY: UNAVAILABLE', color: 'red' });
@@ -364,15 +401,16 @@ async function buildPage101(sub, env, ctx) {
     if (nearby.length > 0) {
       const { f, dist } = nearby[0];
       const p = f.properties;
-      lines.push({ text: 'NEAREST RECENT QUAKE', color: 'yellow' });
+      lines.push({ text: 'NEAREST RECENT QUAKE', color: 'cyan' });
       lines.push({ text: `  ${fmtMag(p.mag)}  ${Math.round(dist)} km away`, color: 'white' });
       lines.push({ text: `  ${toAscii(p.place || '')}`, color: 'white' });
     }
   }
 
+  const fetchedAt = now;
   const subpages = paginate(lines, 20);
   return assemblePage(101, sub, 'RIGHT NOW', subpages, LINKS_WEATHER,
-    'USGS / Open-Meteo', new Date().toISOString());
+    'USGS / OPEN-METEO', fetchedAt);
 }
 
 // ---------------------------------------------------------------------------
@@ -380,26 +418,27 @@ async function buildPage101(sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 function buildPage199() {
+  const now = new Date().toISOString();
   const lines = [
     { text: '', color: 'white' },
     { text: 'DATA SOURCES AND LICENCES', color: 'cyan' },
     { text: '', color: 'white' },
-    { text: 'EARTHQUAKES', color: 'yellow' },
+    { text: 'EARTHQUAKES', color: 'cyan' },
     { text: '  USGS Earthquake Hazards Program', color: 'white' },
     { text: '  earthquake.usgs.gov', color: 'white' },
     { text: '  Public domain', color: 'white' },
     { text: '', color: 'white' },
-    { text: 'NATURAL EVENTS', color: 'yellow' },
+    { text: 'NATURAL EVENTS', color: 'cyan' },
     { text: '  NASA EONET (Earth Observatory Natural', color: 'white' },
     { text: '  Event Tracker)', color: 'white' },
     { text: '  eonet.gsfc.nasa.gov', color: 'white' },
     { text: '  NASA Open Data', color: 'white' },
     { text: '', color: 'white' },
-    { text: 'WEATHER AND AIR QUALITY', color: 'yellow' },
+    { text: 'WEATHER AND AIR QUALITY', color: 'cyan' },
     { text: '  Open-Meteo (CC BY 4.0)', color: 'white' },
     { text: '  open-meteo.com', color: 'white' },
     { text: '', color: 'white' },
-    { text: 'AI DIGEST (PAGE 500)', color: 'yellow' },
+    { text: 'AI DIGEST (PAGE 500)', color: 'cyan' },
     { text: '  Cloudflare Workers AI', color: 'white' },
   ];
   return {
@@ -408,7 +447,8 @@ function buildPage199() {
     lines,
     links: LINKS_INDEX,
     source: 'Teletorch',
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now,
+    srcLine: buildSrcLine('TELETORCH', now),
   };
 }
 
@@ -417,6 +457,7 @@ function buildPage199() {
 // ---------------------------------------------------------------------------
 
 async function buildPage200(sub, env, ctx) {
+  const now = new Date().toISOString();
   const result = await usgs('4.5', 'day', ctx);
   if (!result.ok) {
     return {
@@ -425,24 +466,25 @@ async function buildPage200(sub, env, ctx) {
       lines: unavailableLines('USGS'),
       links: LINKS_QUAKE,
       source: 'USGS',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('USGS', now),
     };
   }
 
   const features = result.features.sort((a, b) =>
     (b.properties.mag || 0) - (a.properties.mag || 0));
 
-  const header = [
+  const hdr = [
     { text: `${features.length} events in past 24 hours`, color: 'cyan' },
     { text: '', color: 'white' },
   ];
   const bodyLines = features.length > 0
     ? quakeLines(features)
-    : [{ text: 'No M4.5+ earthquakes in past 24h', color: 'green' }];
+    : [{ text: 'No M4.5+ earthquakes in past 24h', color: 'white' }];
 
-  const subpages = paginate([...header, ...bodyLines], 20);
+  const subpages = paginate([...hdr, ...bodyLines], 20);
   return assemblePage(200, sub, 'EARTHQUAKES M4.5+ 24H', subpages, LINKS_QUAKE,
-    'USGS', new Date().toISOString());
+    'USGS', now);
 }
 
 // ---------------------------------------------------------------------------
@@ -450,6 +492,7 @@ async function buildPage200(sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 async function buildPage201(sub, env, ctx) {
+  const now = new Date().toISOString();
   const result = await usgs('significant', 'week', ctx);
   if (!result.ok) {
     return {
@@ -458,24 +501,25 @@ async function buildPage201(sub, env, ctx) {
       lines: unavailableLines('USGS'),
       links: LINKS_QUAKE,
       source: 'USGS',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('USGS', now),
     };
   }
 
   const features = result.features.sort((a, b) =>
     (b.properties.mag || 0) - (a.properties.mag || 0));
 
-  const header = [
+  const hdr = [
     { text: `${features.length} significant events this week`, color: 'cyan' },
     { text: '', color: 'white' },
   ];
   const bodyLines = features.length > 0
     ? quakeLines(features)
-    : [{ text: 'No significant earthquakes this week', color: 'green' }];
+    : [{ text: 'No significant earthquakes this week', color: 'white' }];
 
-  const subpages = paginate([...header, ...bodyLines], 20);
+  const subpages = paginate([...hdr, ...bodyLines], 20);
   return assemblePage(201, sub, 'SIGNIFICANT QUAKES 7D', subpages, LINKS_QUAKE,
-    'USGS', new Date().toISOString());
+    'USGS', now);
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +527,7 @@ async function buildPage201(sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 async function buildPage202(sub, env, ctx) {
+  const now = new Date().toISOString();
   const place = getPlace(env);
   if (!place) {
     return {
@@ -491,7 +536,8 @@ async function buildPage202(sub, env, ctx) {
       lines: NO_PLACE_LINES,
       links: LINKS_QUAKE,
       source: 'USGS',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('USGS', now),
     };
   }
 
@@ -503,7 +549,8 @@ async function buildPage202(sub, env, ctx) {
       lines: unavailableLines('USGS'),
       links: LINKS_QUAKE,
       source: 'USGS',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('USGS', now),
     };
   }
 
@@ -519,7 +566,7 @@ async function buildPage202(sub, env, ctx) {
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 30);
 
-  const header = [
+  const hdr = [
     { text: `Near ${placeName}`, color: 'cyan' },
     { text: `${nearby.length} quakes within 1000 km (7 days)`, color: 'cyan' },
     { text: '', color: 'white' },
@@ -529,15 +576,15 @@ async function buildPage202(sub, env, ctx) {
     ? nearby.flatMap(({ f, dist }) => {
         const p = f.properties || {};
         return [
-          { text: columns([fmtMag(p.mag), fmtTime(p.time), `${Math.round(dist)}km`], [5, 12, 23]), color: 'yellow' },
+          { text: columns([fmtMag(p.mag), fmtTime(p.time), `${Math.round(dist)}km`], [5, 12, 23]), color: 'cyan' },
           { text: ' ' + toAscii(p.place || '').slice(0, 37), color: 'white' },
         ];
       })
-    : [{ text: 'No M2.5+ quakes within 1000 km', color: 'green' }];
+    : [{ text: 'No M2.5+ quakes within 1000 km', color: 'white' }];
 
-  const subpages = paginate([...header, ...bodyLines], 20);
+  const subpages = paginate([...hdr, ...bodyLines], 20);
   return assemblePage(202, sub, 'NEARBY QUAKES', subpages, LINKS_QUAKE,
-    'USGS', new Date().toISOString());
+    'USGS', now);
 }
 
 // ---------------------------------------------------------------------------
@@ -558,12 +605,12 @@ const LINKS_EONET_NEXT = {
     { color: 'red',    num: 100, label: 'INDEX' },
     { color: 'green',  num: 300, label: 'ALL' },
     { color: 'yellow', num: 302, label: 'STORMS' },
-    { color: 'cyan',   num: 303, label: 'VOLCANS' },
+    { color: 'cyan',   num: 303, label: 'VOLCAN' },
   ],
   302: [
     { color: 'red',    num: 100, label: 'INDEX' },
     { color: 'green',  num: 301, label: 'FIRES' },
-    { color: 'yellow', num: 303, label: 'VOLCANS' },
+    { color: 'yellow', num: 303, label: 'VOLCAN' },
     { color: 'cyan',   num: 304, label: 'FLOODS' },
   ],
   303: [
@@ -574,7 +621,7 @@ const LINKS_EONET_NEXT = {
   ],
   304: [
     { color: 'red',    num: 100, label: 'INDEX' },
-    { color: 'green',  num: 303, label: 'VOLCANS' },
+    { color: 'green',  num: 303, label: 'VOLCAN' },
     { color: 'yellow', num: 305, label: 'OTHER' },
     { color: 'cyan',   num: 300, label: 'ALL' },
   ],
@@ -582,7 +629,7 @@ const LINKS_EONET_NEXT = {
     { color: 'red',    num: 100, label: 'INDEX' },
     { color: 'green',  num: 304, label: 'FLOODS' },
     { color: 'yellow', num: 300, label: 'ALL' },
-    { color: 'cyan',   num: 400, label: 'WEATHER' },
+    { color: 'cyan',   num: 400, label: 'FCST' },
   ],
 };
 
@@ -604,7 +651,7 @@ function eonetLines(events) {
     const geoms = ev.geometry || [];
     const dates = geoms.map(g => g.date || '').filter(Boolean).sort();
     const latestDate = dates.length > 0 ? dates[dates.length - 1].slice(0, 10) : '';
-    lines.push({ text: `${latestDate}  ${cats}`, color: 'yellow' });
+    lines.push({ text: `${latestDate}  ${cats}`, color: 'cyan' });
     const titleLines = wrap(title, 38).slice(0, 1);
     lines.push({ text: ' ' + titleLines[0].trimEnd(), color: 'white' });
   }
@@ -638,6 +685,7 @@ const EONET_CATEGORY_BY_PAGE = {
 };
 
 async function buildEonetPage(pageNum, sub, env, ctx) {
+  const now = new Date().toISOString();
   const result = await eonet(ctx);
   const title = EONET_TITLES[pageNum] || 'NATURAL EVENTS';
   const links = LINKS_EONET_NEXT[pageNum] || LINKS_EVENTS;
@@ -649,24 +697,25 @@ async function buildEonetPage(pageNum, sub, env, ctx) {
       lines: unavailableLines('NASA EONET'),
       links,
       source: 'NASA EONET',
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: now,
+      srcLine: buildSrcLine('NASA EONET', now),
     };
   }
 
   const catId = EONET_CATEGORY_BY_PAGE[pageNum];
   const filtered = filterEonet(result.events, catId);
 
-  const header = [
+  const hdr = [
     { text: `${filtered.length} open events (last 14 days)`, color: 'cyan' },
     { text: '', color: 'white' },
   ];
   const bodyLines = filtered.length > 0
     ? eonetLines(filtered)
-    : [{ text: 'No events in this category', color: 'green' }];
+    : [{ text: 'No events in this category', color: 'white' }];
 
-  const subpages = paginate([...header, ...bodyLines], 20);
+  const subpages = paginate([...hdr, ...bodyLines], 20);
   return assemblePage(pageNum, sub, title, subpages, links,
-    'NASA EONET', new Date().toISOString());
+    'NASA EONET', now);
 }
 
 // ---------------------------------------------------------------------------
@@ -674,6 +723,7 @@ async function buildEonetPage(pageNum, sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 async function buildPage400(sub, env, ctx) {
+  const now = new Date().toISOString();
   const place = getPlace(env);
   if (!place) {
     return {
@@ -681,8 +731,9 @@ async function buildPage400(sub, env, ctx) {
       title: '7-DAY WEATHER',
       lines: NO_PLACE_LINES,
       links: LINKS_WEATHER,
-      source: 'Open-Meteo',
-      fetchedAt: new Date().toISOString(),
+      source: 'OPEN-METEO',
+      fetchedAt: now,
+      srcLine: buildSrcLine('OPEN-METEO', now),
     };
   }
 
@@ -693,8 +744,9 @@ async function buildPage400(sub, env, ctx) {
       title: '7-DAY WEATHER',
       lines: unavailableLines('Open-Meteo'),
       links: LINKS_WEATHER,
-      source: 'Open-Meteo',
-      fetchedAt: new Date().toISOString(),
+      source: 'OPEN-METEO',
+      fetchedAt: now,
+      srcLine: buildSrcLine('OPEN-METEO', now),
     };
   }
 
@@ -706,7 +758,7 @@ async function buildPage400(sub, env, ctx) {
     { text: `${placeName} (${tz})`, color: 'cyan' },
     { text: '', color: 'white' },
     // Column headers
-    { text: columns(['Date', 'Hi', 'Lo', 'mm', 'kph', 'Sky'], [10, 4, 4, 5, 5, 12]), color: 'yellow' },
+    { text: columns(['Date', 'Hi', 'Lo', 'mm', 'kph', 'Sky'], [10, 4, 4, 5, 5, 12]), color: 'cyan' },
   ];
 
   const times = d.time || [];
@@ -725,11 +777,10 @@ async function buildPage400(sub, env, ctx) {
 
   lines.push({ text: '', color: 'white' });
   lines.push({ text: 'Source: Open-Meteo (CC BY 4.0)', color: 'white' });
-  lines.push({ text: 'open-meteo.com', color: 'white' });
 
   const subpages = paginate(lines, 20);
   return assemblePage(400, sub, '7-DAY WEATHER', subpages, LINKS_WEATHER,
-    'Open-Meteo (CC BY 4.0)', new Date().toISOString());
+    'OPEN-METEO', now);
 }
 
 // ---------------------------------------------------------------------------
@@ -737,6 +788,7 @@ async function buildPage400(sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 async function buildPage401(sub, env, ctx) {
+  const now = new Date().toISOString();
   const place = getPlace(env);
   if (!place) {
     return {
@@ -744,8 +796,9 @@ async function buildPage401(sub, env, ctx) {
       title: 'AIR QUALITY',
       lines: NO_PLACE_LINES,
       links: LINKS_WEATHER,
-      source: 'Open-Meteo',
-      fetchedAt: new Date().toISOString(),
+      source: 'OPEN-METEO CAMS',
+      fetchedAt: now,
+      srcLine: buildSrcLine('OPEN-METEO CAMS', now),
     };
   }
 
@@ -756,8 +809,9 @@ async function buildPage401(sub, env, ctx) {
       title: 'AIR QUALITY',
       lines: unavailableLines('Open-Meteo Air Quality'),
       links: LINKS_WEATHER,
-      source: 'Open-Meteo',
-      fetchedAt: new Date().toISOString(),
+      source: 'OPEN-METEO CAMS',
+      fetchedAt: now,
+      srcLine: buildSrcLine('OPEN-METEO CAMS', now),
     };
   }
 
@@ -765,26 +819,28 @@ async function buildPage401(sub, env, ctx) {
   const aqi = result.current.us_aqi;
   const pm = result.current.pm2_5;
   const cat = aqiCategory(aqi != null ? aqi : 0);
+  const col = aqiColor(aqi);
 
   const lines = [
     { text: `${placeName}`, color: 'cyan' },
     { text: '', color: 'white' },
-    { text: 'CURRENT AIR QUALITY', color: 'yellow' },
+    { text: 'CURRENT AIR QUALITY', color: 'cyan' },
     { text: '', color: 'white' },
     { text: `US AQI:  ${aqi != null ? aqi : 'N/A'}`, color: 'white' },
-    { text: `Status:  ${cat}`, color: aqi != null && aqi > 150 ? 'red' : aqi != null && aqi > 100 ? 'yellow' : 'green' },
+    { text: `Status:  ${cat}`, color: col },
     { text: '', color: 'white' },
     { text: `PM2.5:   ${pm != null ? pm + ' ug/m3' : 'N/A'}`, color: 'white' },
     { text: '', color: 'white' },
-    { text: 'AQI SCALE', color: 'yellow' },
+    { text: 'Model estimate (CAMS), not a station', color: 'white' },
+    { text: 'reading.', color: 'white' },
+    { text: '', color: 'white' },
+    { text: 'AQI SCALE', color: 'cyan' },
     { text: '  0-50   Good', color: 'green' },
     { text: '  51-100 Moderate', color: 'yellow' },
     { text: '  101-150 Unhealthy for sensitive grps', color: 'yellow' },
     { text: '  151-200 Unhealthy', color: 'red' },
     { text: '  201-300 Very unhealthy', color: 'red' },
     { text: '  301+    Hazardous', color: 'red' },
-    { text: '', color: 'white' },
-    { text: 'Source: Open-Meteo (CC BY 4.0)', color: 'white' },
   ];
 
   return {
@@ -792,8 +848,9 @@ async function buildPage401(sub, env, ctx) {
     title: 'AIR QUALITY',
     lines,
     links: LINKS_WEATHER,
-    source: 'Open-Meteo (CC BY 4.0)',
-    fetchedAt: new Date().toISOString(),
+    source: 'OPEN-METEO CAMS',
+    fetchedAt: now,
+    srcLine: buildSrcLine('OPEN-METEO CAMS', now),
   };
 }
 
@@ -880,6 +937,7 @@ async function collectFacts(env, ctx) {
 }
 
 async function buildPage500(sub, env, ctx) {
+  const now = new Date().toISOString();
   const facts = await collectFacts(env, ctx);
   const { text, mode } = await aiDigest(facts, env);
 
@@ -899,11 +957,11 @@ async function buildPage500(sub, env, ctx) {
     [
       { color: 'red',    num: 100, label: 'INDEX' },
       { color: 'green',  num: 101, label: 'NOW' },
-      { color: 'yellow', num: 400, label: 'WEATHER' },
-      { color: 'cyan',   num: 200, label: 'QUAKES' },
+      { color: 'yellow', num: 400, label: 'FCST' },
+      { color: 'cyan',   num: 200, label: 'QUAKE' },
     ],
     'Cloudflare Workers AI',
-    new Date().toISOString());
+    now);
 }
 
 // ---------------------------------------------------------------------------
@@ -911,6 +969,7 @@ async function buildPage500(sub, env, ctx) {
 // ---------------------------------------------------------------------------
 
 export function buildPage404(num) {
+  const now = new Date().toISOString();
   return {
     num: num || 404,
     sub: 1, subs: 1,
@@ -919,11 +978,12 @@ export function buildPage404(num) {
       { text: '', color: 'white' },
       { text: `Page ${num || '???'} is not available.`, color: 'red' },
       { text: '', color: 'white' },
-      { text: 'Press 100 for the index.', color: 'yellow' },
+      { text: 'Press 100 for the index.', color: 'white' },
     ],
     links: LINKS_INDEX,
     source: 'Teletorch',
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now,
+    srcLine: buildSrcLine('TELETORCH', now),
   };
 }
 

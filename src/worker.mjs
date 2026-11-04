@@ -171,6 +171,7 @@ function pageToJson(page, rendered) {
     subs:      page.subs,
     title:     page.title,
     rows:      rendered.rows,
+    colors:    rendered.colors,
     links:     page.links || [],
     source:    page.source || '',
     fetchedAt: page.fetchedAt || '',

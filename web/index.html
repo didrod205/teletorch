@@ -400,12 +400,14 @@ function syncLayout() {
     var natural = 40 * r * fs;   // natural grid width at this font-size
     scaleX  = W / natural;       // squeeze/stretch to fill W
     gridH   = H;
+    fs      = fs * 0.985;        // Reduce by 1.5% to prevent header clipping
   } else {
     // Mobile: font fills width exactly, no horizontal scaling
     fs      = W / (40 * r);
     scaleX  = 1;
     gridH   = 24 * 1.15 * fs;
     W       = 40 * r * fs;       // natural width (may be < vp*0.94)
+    fs      = fs * 0.985;        // Reduce by 1.5% to prevent header clipping
   }
 
   fs = Math.max(4, fs);

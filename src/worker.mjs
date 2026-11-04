@@ -99,7 +99,8 @@ async function resolvePlace(url, request, env, ctx) {
         setCookie: buildPlaceCookie(result.lat, result.lon, name),
       };
     }
-    // Geocode failed -- fall through to cookie
+    // Geocode failed -- return special marker so caller knows about it
+    return { place: { lat: NaN, lon: NaN, name: qPlace, notFound: true }, setCookie: null };
   }
 
   // 3. Cookie
@@ -218,7 +219,16 @@ export default {
       const sub = parseInt(url.searchParams.get('s') || '1', 10) || 1;
 
       const { place, setCookie } = await resolvePlace(url, request, env, ctx);
-      const pageEnv = makePageEnv(env, place);
+      
+      // Check for place-not-found error
+      let notFoundError = null;
+      let effectivePlace = place;
+      if (place && place.notFound) {
+        notFoundError = place.name;
+        effectivePlace = null; // Use no place for this request
+      }
+      
+      const pageEnv = makePageEnv(env, effectivePlace);
 
       const nowUtc = new Date().toISOString();
 
@@ -240,6 +250,34 @@ export default {
       if (!page) {
         page = buildPage404(num);
         status = 404;
+      }
+
+      // If place not found, prepend error lines to the page
+      if (notFoundError && page) {
+        const placeMsg = toAscii(notFoundError).slice(0, 24);
+        const errorLine1 = 'PLACE NOT FOUND: ' + placeMsg.padEnd(24);
+        const errorLine2 = 'Try a city name or lat,lon';
+        
+        // Insert two red error lines after the title (row 1)
+        const lines = page.lines || [];
+        page.lines = [
+          ...lines.slice(0, 1), // Keep body lines as-is, error added to render
+        ];
+        
+        // We'll handle the visual rendering in the render function by
+        // prepending error lines. But since render is pure, we need to
+        // build the page with these error lines included.
+        // Actually, it's simpler to inject them into page.lines array.
+        const newLines = [];
+        if (lines.length > 0) {
+          newLines.push(lines[0]); // title line
+        }
+        // Add two red error lines
+        newLines.push({ text: errorLine1, color: 'red' });
+        newLines.push({ text: errorLine2, color: 'red' });
+        // Add rest of body lines
+        newLines.push(...lines.slice(1));
+        page.lines = newLines;
       }
 
       const rendered = render(page, nowUtc);

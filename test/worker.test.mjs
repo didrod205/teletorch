@@ -59,7 +59,13 @@ globalThis.fetch = async (url) => {
   if (u.includes('eonet.gsfc.nasa.gov')) return makeFakeResponse(EONET_DATA);
   if (u.includes('forecast'))           return makeFakeResponse(FORECAST_DATA);
   if (u.includes('air-quality'))        return makeFakeResponse(AIRQUALITY_DATA);
-  if (u.includes('geocoding'))          return makeFakeResponse(GEOCODE_DATA);
+  if (u.includes('geocoding')) {
+    // Return empty results for unknown place names
+    if (u.includes('Xyzzyqqv')) {
+      return makeFakeResponse({ results: [] });
+    }
+    return makeFakeResponse(GEOCODE_DATA);
+  }
   return { ok: false, status: 404, clone() { return this; }, async json() { throw new Error('not found'); } };
 };
 
@@ -281,6 +287,46 @@ describe('GET /unknown-route', () => {
   it('returns 404', async () => {
     const resp = await worker.fetch(req('/unknown-route'), STUB_ENV, {});
     assert.equal(resp.status, 404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Place not found error
+// ---------------------------------------------------------------------------
+describe('?place=<unknown name>', () => {
+  it('returns page with PLACE NOT FOUND error message in red', async () => {
+    const resp = await worker.fetch(req('/p/101.json?place=Xyzzyqqv'), STUB_ENV, {});
+    assert.equal(resp.status, 200);
+    const body = await resp.json();
+    assert.equal(body.num, 101);
+    const text = body.rows.join('\n');
+    assert.ok(text.includes('PLACE NOT FOUND'), 'Should show place not found message');
+    // Check that error line is red
+    assert.ok(body.colors.some(c => c === 'red'), 'Should have at least one red line');
+  });
+
+  it('does NOT set a cookie when place is not found', async () => {
+    const resp = await worker.fetch(req('/p/101.json?place=Xyzzyqqv'), STUB_ENV, {});
+    const cookie = resp.headers.get('set-cookie');
+    assert.ok(!cookie, 'Should not set cookie when place not found');
+  });
+
+  it('does NOT use a previous cookie when ?place= fails', async () => {
+    // First, with a valid place to see the normal flow
+    const r1 = req('/p/101.json?place=London');
+    const resp1 = await worker.fetch(r1, STUB_ENV, {});
+    const cookie = resp1.headers.get('set-cookie');
+    assert.ok(cookie);
+
+    // Now try an invalid place with the cookie present
+    const r2 = req('/p/101.json?place=Xyzzyqqv', {
+      headers: { Cookie: 'tt_place=51.5085%2C-0.1257%2CLondon' },
+    });
+    const resp2 = await worker.fetch(r2, STUB_ENV, {});
+    const body2 = await resp2.json();
+    const text2 = body2.rows.join('\n');
+    // Should still show the error, not London weather
+    assert.ok(text2.includes('PLACE NOT FOUND'), 'Should show place not found, not use cookie');
   });
 });
 

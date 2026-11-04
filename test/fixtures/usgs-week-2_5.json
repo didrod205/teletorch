@@ -1,0 +1,77 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "generated": 1730716800000,
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "title": "USGS Magnitude 2.5+ Earthquakes, Past 7 Days",
+    "status": 200,
+    "api": "2.8.2",
+    "count": 4
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 3.2,
+        "place": "5 km NE of London, United Kingdom",
+        "time": 1730710000000,
+        "updated": 1730711000000,
+        "tz": null,
+        "felt": null,
+        "sig": 150,
+        "type": "earthquake",
+        "title": "M 3.2 - 5 km NE of London, UK"
+      },
+      "geometry": { "type": "Point", "coordinates": [-0.08, 51.56, 5.0] },
+      "id": "us7000near1"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 2.8,
+        "place": "50 km SW of Paris, France",
+        "time": 1730700000000,
+        "updated": 1730701000000,
+        "tz": null,
+        "felt": null,
+        "sig": 120,
+        "type": "earthquake",
+        "title": "M 2.8 - 50 km SW of Paris, France"
+      },
+      "geometry": { "type": "Point", "coordinates": [1.9, 48.4, 8.0] },
+      "id": "us7000near2"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 4.1,
+        "place": "200 km NE of Madrid, Spain",
+        "time": 1730690000000,
+        "updated": 1730691000000,
+        "tz": null,
+        "felt": null,
+        "sig": 250,
+        "type": "earthquake",
+        "title": "M 4.1 - 200 km NE of Madrid, Spain"
+      },
+      "geometry": { "type": "Point", "coordinates": [-1.5, 42.5, 12.0] },
+      "id": "us7000near3"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 5.5,
+        "place": "500 km W of Reykjavik, Iceland",
+        "time": 1730680000000,
+        "updated": 1730681000000,
+        "tz": null,
+        "felt": null,
+        "sig": 465,
+        "type": "earthquake",
+        "title": "M 5.5 - 500 km W of Reykjavik, Iceland"
+      },
+      "geometry": { "type": "Point", "coordinates": [-32.0, 64.1, 10.0] },
+      "id": "us7000near4"
+    }
+  ]
+}

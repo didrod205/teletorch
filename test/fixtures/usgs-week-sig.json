@@ -1,0 +1,45 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "generated": 1730716800000,
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson",
+    "title": "USGS Significant Earthquakes, Past 7 Days",
+    "status": 200,
+    "api": "2.8.2",
+    "count": 2
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 6.7,
+        "place": "100 km SE of Hokkaido, Japan",
+        "time": 1730500000000,
+        "updated": 1730501000000,
+        "tz": null,
+        "felt": 200,
+        "sig": 730,
+        "type": "earthquake",
+        "title": "M 6.7 - 100 km SE of Hokkaido, Japan"
+      },
+      "geometry": { "type": "Point", "coordinates": [145.2, 42.1, 35.0] },
+      "id": "us7000sig1"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 5.9,
+        "place": "25 km NW of Kathmandu, Nepal",
+        "time": 1730400000000,
+        "updated": 1730401000000,
+        "tz": null,
+        "felt": 480,
+        "sig": 600,
+        "type": "earthquake",
+        "title": "M 5.9 - 25 km NW of Kathmandu, Nepal"
+      },
+      "geometry": { "type": "Point", "coordinates": [85.2, 27.8, 8.0] },
+      "id": "us7000sig2"
+    }
+  ]
+}

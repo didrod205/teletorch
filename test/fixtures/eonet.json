@@ -1,0 +1,122 @@
+{
+  "title": "EONET Events",
+  "description": "Natural events from EONET.",
+  "link": "https://eonet.gsfc.nasa.gov/api/v3/events",
+  "events": [
+    {
+      "id": "EONET_25964",
+      "title": "Tropical Cyclone Murasu",
+      "description": null,
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_25964",
+      "closed": null,
+      "categories": [
+        { "id": "severeStorms", "title": "Severe Storms" }
+      ],
+      "sources": [
+        { "id": "JTWC", "url": "https://www.metoc.navy.mil/jtwc/products/io0426.tcw" }
+      ],
+      "geometry": [
+        {
+          "magnitudeValue": 35.0,
+          "magnitudeUnit": "kts",
+          "date": "2026-11-01T00:00:00Z",
+          "type": "Point",
+          "coordinates": [86.2, 11.4]
+        },
+        {
+          "magnitudeValue": 65.0,
+          "magnitudeUnit": "kts",
+          "date": "2026-11-03T06:00:00Z",
+          "type": "Point",
+          "coordinates": [80.2, 15.8]
+        }
+      ]
+    },
+    {
+      "id": "EONET_25984",
+      "title": "Prescribed Fire Dry Lake Hills Piles RX, Coconino, Arizona",
+      "description": null,
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_25984",
+      "closed": null,
+      "categories": [
+        { "id": "wildfires", "title": "Wildfires" }
+      ],
+      "sources": [
+        { "id": "IRWIN", "url": "https://irwin.doi.gov/observer/incidents/2026-AZCOF-001612" }
+      ],
+      "geometry": [
+        {
+          "magnitudeValue": 902.0,
+          "magnitudeUnit": "acres",
+          "date": "2026-10-30T10:13:00Z",
+          "type": "Point",
+          "coordinates": [-111.8, 35.2]
+        }
+      ]
+    },
+    {
+      "id": "EONET_25900",
+      "title": "Fagradalsfjall Volcano Eruption, Iceland",
+      "description": null,
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_25900",
+      "closed": null,
+      "categories": [
+        { "id": "volcanoes", "title": "Volcanoes" }
+      ],
+      "sources": [
+        { "id": "IMO", "url": "https://en.vedur.is/" }
+      ],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-10-25T08:00:00Z",
+          "type": "Point",
+          "coordinates": [-22.3, 63.9]
+        }
+      ]
+    },
+    {
+      "id": "EONET_25910",
+      "title": "River Flooding in Bangladesh",
+      "description": null,
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_25910",
+      "closed": null,
+      "categories": [
+        { "id": "floods", "title": "Floods" }
+      ],
+      "sources": [
+        { "id": "GDACS", "url": "https://gdacs.org" }
+      ],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-10-28T00:00:00Z",
+          "type": "Point",
+          "coordinates": [90.3, 23.8]
+        }
+      ]
+    },
+    {
+      "id": "EONET_25920",
+      "title": "Snow Storm Great Plains",
+      "description": null,
+      "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_25920",
+      "closed": null,
+      "categories": [
+        { "id": "snow", "title": "Snow" }
+      ],
+      "sources": [],
+      "geometry": [
+        {
+          "magnitudeValue": null,
+          "magnitudeUnit": null,
+          "date": "2026-10-29T12:00:00Z",
+          "type": "Point",
+          "coordinates": [-98.0, 41.5]
+        }
+      ]
+    }
+  ]
+}

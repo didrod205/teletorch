@@ -1,0 +1,61 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "generated": 1730716800000,
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson",
+    "title": "USGS Magnitude 4.5+ Earthquakes, Past Day",
+    "status": 200,
+    "api": "2.8.2",
+    "count": 3
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 5.1,
+        "place": "80 km SW of Tokyo, Japan",
+        "time": 1730710000000,
+        "updated": 1730711000000,
+        "tz": null,
+        "felt": 12,
+        "sig": 400,
+        "type": "earthquake",
+        "title": "M 5.1 - 80 km SW of Tokyo, Japan"
+      },
+      "geometry": { "type": "Point", "coordinates": [138.9, 35.2, 10.0] },
+      "id": "us7000abc1"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 4.8,
+        "place": "40 km N of Mexico City, Mexico",
+        "time": 1730700000000,
+        "updated": 1730701000000,
+        "tz": null,
+        "felt": 5,
+        "sig": 350,
+        "type": "earthquake",
+        "title": "M 4.8 - 40 km N of Mexico City, Mexico"
+      },
+      "geometry": { "type": "Point", "coordinates": [-99.1, 19.8, 15.0] },
+      "id": "us7000abc2"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 4.5,
+        "place": "10 km E of Anchorage, Alaska",
+        "time": 1730690000000,
+        "updated": 1730691000000,
+        "tz": null,
+        "felt": null,
+        "sig": 312,
+        "type": "earthquake",
+        "title": "M 4.5 - 10 km E of Anchorage, Alaska"
+      },
+      "geometry": { "type": "Point", "coordinates": [-149.7, 61.2, 20.0] },
+      "id": "us7000abc3"
+    }
+  ]
+}

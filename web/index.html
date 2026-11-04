@@ -6,7 +6,7 @@
 <title>Teletorch</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#000;color:#fff;font-family:Consolas,"Courier New",Courier,monospace;min-height:100vh;user-select:none}
+html,body{background:#000;color:#fff;font-family:Consolas,"Courier New",Courier,monospace;min-height:100vh;user-select:none;overflow-x:hidden}
 body{display:flex;flex-direction:column;align-items:center;padding:8px 4px 16px}
 
 /* TV screen: exact 40-col monospace grid */
@@ -16,13 +16,14 @@ body{display:flex;flex-direction:column;align-items:center;padding:8px 4px 16px}
   border:1px solid #333;
   overflow:hidden;
   cursor:crosshair;
-  /* width set by JS */
+  /* width and height set by JS */
+  flex-shrink:0;
 }
 #screen{
   display:block;
-  white-space:pre;
   line-height:1.15;
-  /* font-size and width set by JS */
+  transform-origin:left top;
+  /* font-size and scaleX set by JS */
 }
 /* Each row span */
 .row{
@@ -33,6 +34,7 @@ body{display:flex;flex-direction:column;align-items:center;padding:8px 4px 16px}
   font-size:inherit;
   line-height:inherit;
   font-style:normal;
+  /* width: 40ch of the unscaled font, set by JS */
 }
 
 /* Title band: row index 1 -- blue BG, yellow text */
@@ -346,48 +348,92 @@ for (var i = 0; i < 24; i++) {
 }
 
 // ---------------------------------------------------------------------------
-// Font sizing: measure actual char width then scale to fill screen
+// Font sizing: canvas-based char ratio + scaleX for classic wide teletext
 // ---------------------------------------------------------------------------
-var measureSpan = document.createElement('span');
-measureSpan.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:Consolas,"Courier New",Courier,monospace;font-size:100px';
-measureSpan.textContent = '0'.repeat(40);
-document.body.appendChild(measureSpan);
 
-function computeScreenWidth() {
-  // Screen width = min(1000px, 94vw, (innerHeight - 230px) * 4/3)
-  var vw94 = window.innerWidth * 0.94;
-  var fromH = (window.innerHeight - 230) * (4 / 3);
-  return Math.max(200, Math.min(1000, Math.min(vw94, fromH)));
+// Measure the advance ratio r = total width of 40 M's at 100px / 4000
+// so that natural grid width = 40 * r * fontSize
+var _ratioCache = 0;
+function charRatio() {
+  if (_ratioCache) return _ratioCache;
+  try {
+    var fc = window.getComputedStyle(screen).fontFamily;
+    var c  = document.createElement('canvas');
+    var ctx = c.getContext('2d');
+    ctx.font = '100px ' + fc;
+    _ratioCache = ctx.measureText('M'.repeat(40)).width / 4000;
+  } catch(e) {
+    _ratioCache = 0.6; // safe fallback for monospace
+  }
+  return _ratioCache;
 }
 
 function syncLayout() {
-  var sw = computeScreenWidth();
-  screenWrap.style.width = sw + 'px';
-  controls.style.width = sw + 'px';
+  var vp = window.innerWidth;
+  var isMobile = vp < 600;
 
-  // Measure: how wide is a 40-char string at 100px?
-  measureSpan.style.fontSize = '100px';
-  var charW100 = measureSpan.offsetWidth / 40;
-  // Target: 40 chars fill sw px
-  var fs = sw / (charW100 / 100);   // fs = sw * 100 / charW100
-  // Clamp to reasonable range
-  fs = Math.max(6, Math.min(40, fs));
-  screen.style.fontSize = fs + 'px';
+  // Measure controls height after current layout so it is accurate
+  // (first call: controls not yet positioned; subsequent calls are accurate)
+  var ctrlH = controls.offsetHeight || 180;
 
-  // Screen height = 24 lines * lineHeight
-  var lh = fs * 1.15;
-  screenWrap.style.height = Math.ceil(24 * lh) + 'px';
+  // Box width W = min(1000, 94vw)
+  var W = Math.min(1000, vp * 0.94);
 
-  // Keypad layout: wide if > 600px, narrow otherwise
-  if (sw >= 560) {
-    keypad.className = 'kp-wide';
+  var r  = charRatio();
+  var fs, scaleX, gridH;
+
+  if (!isMobile) {
+    // Desktop: constrain H so it fits in the viewport
+    var maxH = Math.max(100, window.innerHeight - ctrlH - 24);
+    var H = Math.min(W * 3 / 4, maxH);
+    W = H * 4 / 3;  // re-derive W from the (possibly clamped) H
+
+    fs      = H / (24 * 1.15);
+    var natural = 40 * r * fs;   // natural grid width at this font-size
+    scaleX  = W / natural;       // squeeze/stretch to fill W
+    gridH   = H;
   } else {
-    keypad.className = 'kp-narrow';
+    // Mobile: font fills width exactly, no horizontal scaling
+    fs      = W / (40 * r);
+    scaleX  = 1;
+    gridH   = 24 * 1.15 * fs;
+    W       = 40 * r * fs;       // natural width (may be < vp*0.94)
   }
 
-  // Canvas sync
-  overlay.width  = screenWrap.offsetWidth;
-  overlay.height = screenWrap.offsetHeight;
+  fs = Math.max(4, fs);
+
+  // Apply to screen element
+  screen.style.fontSize    = fs + 'px';
+  screen.style.transform   = scaleX !== 1 ? 'scaleX(' + scaleX + ')' : '';
+  screen.style.transformOrigin = 'left top';
+  screen.style.width       = '';   // let rows set their own width
+
+  // Apply to every row: 40ch at unscaled font
+  for (var i = 0; i < rowDivs.length; i++) {
+    rowDivs[i].style.width = '40ch';
+  }
+
+  // Screen-wrap clips the scaled output
+  screenWrap.style.width   = Math.round(W) + 'px';
+  screenWrap.style.height  = Math.ceil(gridH) + 'px';
+  controls.style.width     = Math.round(W) + 'px';
+
+  // Keypad layout: wide if box > 560 px
+  keypad.className = W >= 560 ? 'kp-wide' : 'kp-narrow';
+
+  // Canvas overlay
+  overlay.width  = screenWrap.offsetWidth  || Math.round(W);
+  overlay.height = screenWrap.offsetHeight || Math.ceil(gridH);
+
+  // Self-check: warn if any row overflows its container
+  requestAnimationFrame(function(){
+    for (var j = 0; j < rowDivs.length; j++) {
+      if (rowDivs[j].scrollWidth > rowDivs[j].clientWidth + 1) {
+        console.warn('Teletorch row ' + j + ' overflow: scrollWidth=' +
+          rowDivs[j].scrollWidth + ' clientWidth=' + rowDivs[j].clientWidth);
+      }
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -675,7 +721,7 @@ window.addEventListener('popstate', function(e){
 var resizeTimer;
 window.addEventListener('resize', function(){
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(syncLayout, 60);
+  resizeTimer = setTimeout(function(){ _ratioCache = 0; syncLayout(); }, 60);
 });
 
 // ---------------------------------------------------------------------------
@@ -683,6 +729,11 @@ window.addEventListener('resize', function(){
 // ---------------------------------------------------------------------------
 (function init(){
   syncLayout();
+
+  // Re-measure after fonts are ready (ratio may differ once web fonts load)
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function(){ _ratioCache = 0; syncLayout(); });
+  }
 
   var m = window.location.pathname.match(/\/p\/(\d{3})/);
   var initPage = m ? parseInt(m[1], 10) : 100;

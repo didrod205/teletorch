@@ -8,6 +8,7 @@
 
 import { pad, wrap, columns, paginate, render, blankPage, toAscii } from './teletext.mjs';
 import { usgs, eonet, forecast, airQuality, geocode } from './sources.mjs';
+import { aiDigest, templateDigest } from './digest.mjs';
 
 // ---------------------------------------------------------------------------
 // WMO weather code table (codes 0-99)
@@ -797,6 +798,115 @@ async function buildPage401(sub, env, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Page 500: AI digest
+// ---------------------------------------------------------------------------
+
+/**
+ * Collect the same facts used by page 101 into a plain object suitable
+ * for the AI prompt and the grounding guard.
+ */
+async function collectFacts(env, ctx) {
+  const place = getPlace(env);
+  const [fcResult, aqResult, quakeResult, quakeSigResult, eonetResult] = await Promise.all([
+    place ? forecast(place.lat, place.lon, ctx)   : Promise.resolve({ ok: false }),
+    place ? airQuality(place.lat, place.lon, ctx) : Promise.resolve({ ok: false }),
+    usgs('4.5', 'day', ctx),
+    usgs('significant', 'week', ctx),
+    eonet(ctx),
+  ]);
+
+  const facts = {};
+
+  // Place
+  if (place) {
+    facts.placeName = toAscii(place.name || `${place.lat},${place.lon}`);
+    facts.placeLat = place.lat;
+    facts.placeLon = place.lon;
+  }
+
+  // Earthquakes today (M4.5+ 24h)
+  facts.quakesToday = [];
+  if (quakeResult.ok) {
+    facts.quakesToday = quakeResult.features.slice(0, 10).map(f => ({
+      mag: f.properties.mag,
+      place: toAscii(f.properties.place || ''),
+      time: fmtTime(f.properties.time),
+    }));
+    facts.quakesTodayCount = quakeResult.features.length;
+  }
+
+  // Significant quakes this week
+  facts.significantQuakes = [];
+  if (quakeSigResult.ok) {
+    facts.significantQuakes = quakeSigResult.features.slice(0, 5).map(f => ({
+      mag: f.properties.mag,
+      place: toAscii(f.properties.place || ''),
+      time: fmtTime(f.properties.time),
+    }));
+    facts.significantQuakesCount = quakeSigResult.features.length;
+  }
+
+  // EONET open events
+  facts.openEvents = [];
+  if (eonetResult.ok) {
+    facts.openEvents = eonetResult.events.slice(0, 10).map(e => ({
+      title: toAscii(e.title || ''),
+      categories: (e.categories || []).map(c => toAscii(c.title || c.id)),
+    }));
+    facts.openEventsCount = eonetResult.events.length;
+  }
+
+  // Weather (place-dependent)
+  if (fcResult.ok && fcResult.daily && fcResult.daily.time) {
+    const d = fcResult.daily;
+    facts.weather = {
+      todayMax: d.temperature_2m_max && d.temperature_2m_max[0],
+      todayMin: d.temperature_2m_min && d.temperature_2m_min[0],
+      todayDesc: wmoDescription((d.weather_code && d.weather_code[0]) || 0),
+      windMax: d.wind_speed_10m_max && d.wind_speed_10m_max[0],
+    };
+  }
+
+  // Air quality (place-dependent)
+  if (aqResult.ok && aqResult.current) {
+    facts.aqi = {
+      value: aqResult.current.us_aqi,
+      pm25: aqResult.current.pm2_5,
+      category: aqiCategory(aqResult.current.us_aqi != null ? aqResult.current.us_aqi : 0),
+    };
+  }
+
+  return facts;
+}
+
+async function buildPage500(sub, env, ctx) {
+  const facts = await collectFacts(env, ctx);
+  const { text, mode } = await aiDigest(facts, env);
+
+  // Wrap text into 38-char lines (2 char indent), up to 20 lines
+  const wrapped = wrap(text, 38).map(l => ({ text: '  ' + l.trimEnd(), color: 'white' }));
+  const statusColor = mode === 'AI' ? 'cyan' : 'yellow';
+
+  const lines = [
+    { text: '', color: 'white' },
+    { text: `SOURCE: ${mode}`, color: statusColor },
+    { text: '', color: 'white' },
+    ...wrapped,
+  ];
+
+  const subpages = paginate(lines, 20);
+  return assemblePage(500, sub, `DIGEST [${mode}]`, subpages,
+    [
+      { color: 'red',    num: 100, label: 'INDEX' },
+      { color: 'green',  num: 101, label: 'NOW' },
+      { color: 'yellow', num: 400, label: 'WEATHER' },
+      { color: 'cyan',   num: 200, label: 'QUAKES' },
+    ],
+    'Cloudflare Workers AI',
+    new Date().toISOString());
+}
+
+// ---------------------------------------------------------------------------
 // Page 404: Not found
 // ---------------------------------------------------------------------------
 
@@ -847,6 +957,7 @@ export async function buildPage(num, sub, env, ctx) {
     case 305: return buildEonetPage(305, sub, env, ctx);
     case 400: return buildPage400(sub, env, ctx);
     case 401: return buildPage401(sub, env, ctx);
+    case 500: return buildPage500(sub, env, ctx);
     default:  return buildPage404(num);
   }
 }

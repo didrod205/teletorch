@@ -140,6 +140,7 @@ export function wrap(s, width = WIDTH) {
   const text = toAscii(String(s));
   if (text.length === 0) return [pad('', width)];
   const words = text.split(/\s+/).filter(w => w.length > 0);
+  if (words.length === 0) return [pad('', width)];
   const lines = [];
   let current = '';
   for (const word of words) {

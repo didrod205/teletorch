@@ -1,0 +1,11 @@
+{
+  "name": "teletorch",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test 'test/*.test.mjs'"
+  },
+  "devDependencies": {
+    "fast-check": "3.22.0"
+  }
+}

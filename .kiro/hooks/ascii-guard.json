@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "ASCII Guard",
+      "trigger": "PostFileSave",
+      "description": "Fail if a src .mjs file contains middle dots or non-ASCII characters outside string escapes, enforcing the ASCII-only rule.",
+      "matcher": "src/.*\\.mjs$",
+      "action": {
+        "type": "command",
+        "command": "node -e \"\nconst fs = require('fs');\nconst path = process.env.KIRO_FILE_PATH || process.argv[2];\nif (!path) process.exit(0);\nconst src = fs.readFileSync(path, 'utf8');\n// Strip string/template literal contents before checking\nconst stripped = src\n  .replace(/\\`[^\\`]*\\`/g, '\\\"\\\"')\n  .replace(/\\\"(?:[^\\\"\\\\\\\\]|\\\\\\\\.)*\\\"/g, '\\\"\\\"')\n  .replace(/'(?:[^'\\\\\\\\]|\\\\\\\\.)*'/g, \\\"''\\\");\n// Check for middle dot (U+00B7) or non-ASCII\nconst badChars = [...stripped].filter(c => c === '\\\\u00b7' || c.charCodeAt(0) > 126 || c.charCodeAt(0) < 32 &amp;&amp; c !== '\\\\n' &amp;&amp; c !== '\\\\r' &amp;&amp; c !== '\\\\t');\nif (badChars.length > 0) {\n  const chars = [...new Set(badChars)].map(c => 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0'));\n  process.stderr.write('ASCII guard: non-ASCII or middle-dot found in ' + path + ': ' + chars.join(', ') + '\\\\n');\n  process.exit(2);\n}\nprocess.exit(0);\n\""
+      }
+    }
+  ]
+}

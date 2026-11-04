@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run Tests on Save",
+      "trigger": "PostFileSave",
+      "description": "Run the test suite whenever a .mjs file in src/ or test/ is saved, showing only the last 20 lines of output.",
+      "matcher": "src/.*\\.mjs$|test/.*\\.mjs$",
+      "action": {
+        "type": "command",
+        "command": "npm test --silent 2>&1 | tail -n 20"
+      }
+    }
+  ]
+}

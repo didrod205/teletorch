@@ -1,8 +1,8 @@
 # Tasks: Teletorch
 
-- [ ] 1. Project setup: package.json (type module, test script `node --test test/`), dev dependency fast-check, .gitignore (node_modules only). _R1_
-- [ ] 2. `src/teletext.mjs`: toAscii, pad, wrap, columns, paginate, header, fastext, render. _R1, R2_
-- [ ] 3. `test/teletext.test.mjs`: unit tests + property tests (24x40 ASCII for any input, wrap keeps all words). _R1_
+- [x] 1. Project setup: package.json (type module, test script `node --test test/`), dev dependency fast-check, .gitignore (node_modules only). _R1_
+- [x] 2. `src/teletext.mjs`: toAscii, pad, wrap, columns, paginate, header, fastext, render. _R1, R2_
+- [x] 3. `test/teletext.test.mjs`: unit tests + property tests (24x40 ASCII for any input, wrap keeps all words). _R1_
 - [ ] 4. `src/sources.mjs`: cached fetch, usgs(feed), eonet(), forecast(lat,lon), airQuality(lat,lon), geocode(name); never throw. _R3, R5_
 - [ ] 5. `src/pages.mjs`: builders for 100, 101, 199, 200, 201, 202, 300-305, 400, 401, 404 page; distance helper (haversine). _R2, R3, R5_
 - [ ] 6. `test/pages.test.mjs` with fixtures in `test/fixtures/` (no network). _R2_
